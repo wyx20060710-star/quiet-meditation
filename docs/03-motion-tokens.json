@@ -1,0 +1,38 @@
+{
+  "$schema": "https://design-tokens.github.io/community-group/format/",
+  "meta": {
+    "name": "极简冥想计时器动效变量",
+    "version": "1.0.0",
+    "stage": 3,
+    "date": "2026-08-04"
+  },
+  "motion": {
+    "duration": {
+      "pageEnter": { "$type": "duration", "$value": "220ms" },
+      "pageExit": { "$type": "duration", "$value": "160ms" },
+      "controlsEnter": { "$type": "duration", "$value": "180ms" },
+      "controlsExit": { "$type": "duration", "$value": "240ms" },
+      "buttonPress": { "$type": "duration", "$value": "90ms" },
+      "recordsExpand": { "$type": "duration", "$value": "240ms" },
+      "modalEnter": { "$type": "duration", "$value": "180ms" },
+      "modalExit": { "$type": "duration", "$value": "140ms" },
+      "reducedFade": { "$type": "duration", "$value": "60ms" },
+      "breathCycle": { "$type": "duration", "$value": "9000ms" },
+      "controlsIdle": { "$type": "duration", "$value": "4000ms" }
+    },
+    "easing": {
+      "standard": { "$type": "cubicBezier", "$value": [0.2, 0, 0, 1] },
+      "exit": { "$type": "cubicBezier", "$value": [0.4, 0, 1, 1] },
+      "linear": { "$type": "cubicBezier", "$value": [0, 0, 1, 1] }
+    },
+    "distance": {
+      "page": { "$type": "dimension", "$value": "4px" },
+      "modal": { "$type": "dimension", "$value": "4px" },
+      "buttonPress": { "$type": "dimension", "$value": "1px" }
+    },
+    "scale": {
+      "breathMin": { "$type": "number", "$value": 1 },
+      "breathMax": { "$type": "number", "$value": 1.01 }
+    }
+  }
+}

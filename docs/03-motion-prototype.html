@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="stone">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <title>极简冥想计时器 · 阶段 3 动效原型</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root {
+      color-scheme: light;
+      --canvas: #D8D3C8;
+      --surface: #C9C3B7;
+      --surface-raised: #E7E3DA;
+      --text: #33322E;
+      --muted: #5A5751;
+      --accent: #485F55;
+      --on-accent: #F5F2EB;
+      --border: #777168;
+      --focus: #4B4036;
+      --caution: #6B554D;
+      --overlay: rgba(38, 37, 33, .34);
+      --ease-standard: cubic-bezier(.2, 0, 0, 1);
+      --ease-exit: cubic-bezier(.4, 0, 1, 1);
+      --page-enter: 220ms;
+      --page-exit: 160ms;
+      --controls-enter: 180ms;
+      --controls-exit: 240ms;
+      --records-duration: 240ms;
+      --modal-enter: 180ms;
+      --modal-exit: 140ms;
+      --font-ui: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+      --font-display: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", serif;
+    }
+    :root[data-theme="mist"] {
+      --canvas: #E4E8E6;
+      --surface: #F0F2EF;
+      --surface-raised: #F7F9F7;
+      --text: #39413F;
+      --muted: #596561;
+      --accent: #506D6B;
+      --on-accent: #F7FAF8;
+      --border: #75827F;
+      --focus: #425E61;
+      --caution: #685A58;
+      --overlay: rgba(43, 53, 51, .28);
+    }
+    html, body { min-width: 320px; min-height: 100%; margin: 0; }
+    body {
+      overflow: hidden;
+      background: var(--canvas);
+      color: var(--text);
+      font: 400 16px/1.65 var(--font-ui);
+      transition: background-color 220ms var(--ease-standard), color 220ms var(--ease-standard);
+    }
+    button, input { font: inherit; }
+    button { color: inherit; -webkit-tap-highlight-color: transparent; }
+    button:focus-visible, input:focus-visible {
+      outline: 3px solid var(--focus);
+      outline-offset: 2px;
+    }
+    button:active { transform: translateY(1px); transition-duration: 90ms; }
+    .app { position: relative; min-height: 100dvh; isolation: isolate; }
+    .view {
+      position: absolute;
+      inset: 0;
+      min-height: 100dvh;
+      overflow: hidden auto;
+      visibility: hidden;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(4px);
+    }
+    .view.is-active {
+      z-index: 2;
+      visibility: visible;
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+      animation: page-in var(--page-enter) var(--ease-standard) both;
+    }
+    .view.is-leaving {
+      z-index: 3;
+      visibility: visible;
+      pointer-events: none;
+      animation: page-out var(--page-exit) var(--ease-exit) both;
+    }
+    @keyframes page-in { from { opacity: 0; transform: translateY(4px); } }
+    @keyframes page-out { to { opacity: 0; transform: translateY(-2px); } }
+    .primary, .secondary, .caution, .utility, .quick-button, .reveal {
+      min-height: 44px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background-color 140ms, border-color 140ms, color 140ms, transform 90ms;
+    }
+    .primary, .secondary, .caution { height: 52px; padding: 0 28px; font-weight: 500; }
+    .primary { border: 1px solid var(--accent); background: var(--accent); color: var(--on-accent); }
+    .primary:hover { filter: brightness(.96); }
+    .secondary { border: 1px solid var(--border); background: transparent; }
+    .caution { border: 1px solid var(--caution); background: transparent; color: var(--caution); }
+    .utility {
+      min-height: 44px;
+      padding: 0 12px;
+      border: 1px solid var(--border);
+      background: transparent;
+      font-size: 14px;
+    }
+    .utility:hover, .secondary:hover, .caution:hover, .quick-button:hover { background: color-mix(in srgb, var(--surface), transparent 35%); }
+
+    /* 首页 */
+    .home { display: grid; grid-template-rows: auto 1fr auto; padding: max(40px, env(safe-area-inset-top)) 40px max(32px, env(safe-area-inset-bottom)); }
+    .utility-bar { z-index: 2; display: flex; justify-content: flex-end; gap: 8px; width: min(600px, 100%); margin: 0 auto; }
+    .home-core { align-self: center; width: min(600px, 100%); margin: -12px auto 0; text-align: center; }
+    .display-title { margin: 0; font: 500 32px/1.3 var(--font-display); letter-spacing: .08em; }
+    .duration { margin-top: 40px; font-size: 56px; line-height: 1.08; letter-spacing: -.025em; font-variant-numeric: tabular-nums; }
+    .duration small { margin-left: 6px; color: var(--muted); font-size: .38em; letter-spacing: 0; }
+    .quick { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 32px; }
+    .quick-button { position: relative; min-width: 44px; border: 1px solid var(--border); background: transparent; font-size: 14px; }
+    .quick-button[aria-pressed="true"] { border: 2px solid var(--accent); background: color-mix(in srgb, var(--surface), transparent 28%); }
+    .quick-button[aria-pressed="true"]::after { content: ""; position: absolute; left: 50%; bottom: 5px; width: 4px; height: 4px; transform: translateX(-50%); border-radius: 50%; background: var(--accent); }
+    .slider-wrap { margin-top: 24px; }
+    .slider-row { display: grid; grid-template-columns: 24px 1fr 28px; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; }
+    input[type="range"] { width: 100%; height: 44px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+    .slider-value { min-height: 18px; margin-top: 2px; color: var(--muted); font-size: 12px; }
+    .start { min-width: 190px; margin-top: 40px; }
+    .home-stats { display: flex; justify-content: center; gap: 28px; color: var(--muted); font-size: 14px; }
+
+    /* 进行页 */
+    .timer-view { overflow: hidden; cursor: default; user-select: none; }
+    .timer-stage { position: absolute; inset: 0; display: grid; place-items: center; }
+    .timer-center { position: relative; display: grid; place-items: center; width: 360px; height: 360px; }
+    .ring-visual { position: absolute; inset: 0; transform-origin: center; animation: breathe 9s var(--ease-standard) infinite; }
+    .timer-view.is-paused .ring-visual, .timer-view.is-confirming .ring-visual { animation-play-state: paused; }
+    @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.01); } }
+    .ring-svg { display: block; width: 100%; height: 100%; overflow: visible; transform: rotate(-90deg); }
+    .ring-track, .ring-progress { fill: none; stroke-width: 6; }
+    .ring-track { stroke: var(--border); }
+    .ring-progress { stroke: var(--accent); stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 0; transition: stroke-dashoffset 1s linear; }
+    .time-cluster { z-index: 1; display: grid; justify-items: center; }
+    .time { font-size: 64px; line-height: 1.05; letter-spacing: -.03em; font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
+    .pause-label { min-height: 24px; margin-top: 12px; color: var(--muted); opacity: 0; transform: translateY(2px); transition: opacity 180ms var(--ease-standard), transform 180ms var(--ease-standard); }
+    .timer-view.is-paused .pause-label { opacity: 1; transform: translateY(0); }
+    .timer-controls {
+      position: absolute;
+      z-index: 4;
+      left: 50%;
+      top: calc(50% + 236px);
+      display: flex;
+      gap: 12px;
+      transform: translateX(-50%);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity var(--controls-exit) var(--ease-exit), visibility 0s linear var(--controls-exit);
+    }
+    .timer-controls.is-visible {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transition: opacity var(--controls-enter) var(--ease-standard), visibility 0s;
+    }
+    .timer-controls .primary, .timer-controls .caution { min-width: 132px; }
+    .hint { position: absolute; bottom: max(20px, env(safe-area-inset-bottom)); left: 50%; color: var(--muted); font-size: 12px; transform: translateX(-50%); opacity: .75; }
+
+    /* 确认层 */
+    .modal-layer { position: fixed; z-index: 10; inset: 0; display: grid; place-items: center; padding: 20px; background: var(--overlay); opacity: 0; visibility: hidden; pointer-events: none; transition: opacity var(--modal-exit) var(--ease-exit), visibility 0s linear var(--modal-exit); }
+    .modal-layer.is-open { opacity: 1; visibility: visible; pointer-events: auto; transition: opacity var(--modal-enter) var(--ease-standard), visibility 0s; }
+    .modal { width: min(400px, calc(100vw - 40px)); padding: 32px; border: 1px solid var(--border); border-radius: 20px; background: var(--surface-raised); box-shadow: 0 20px 60px rgba(33,35,32,.14); transform: translateY(4px); transition: transform var(--modal-exit) var(--ease-exit); }
+    .modal-layer.is-open .modal { transform: translateY(0); transition-duration: var(--modal-enter); transition-timing-function: var(--ease-standard); }
+    .modal h2 { margin: 0; font-size: 18px; line-height: 1.45; }
+    .modal p { margin: 12px 0 28px; color: var(--muted); }
+    .modal-actions { display: grid; gap: 12px; }
+
+    /* 完成页 */
+    .complete-view { padding: max(72px, env(safe-area-inset-top)) 40px max(48px, env(safe-area-inset-bottom)); text-align: center; }
+    .complete-core { width: min(720px, 100%); margin: 0 auto; }
+    .complete-view h1 { margin: 0; font: 500 32px/1.35 var(--font-display); }
+    .result { margin-top: 40px; font-size: 24px; font-weight: 500; }
+    .today { margin-top: 8px; color: var(--muted); font-size: 14px; }
+    .complete-actions { display: flex; justify-content: center; gap: 12px; margin-top: 40px; }
+    .reveal { margin-top: 20px; padding: 0 16px; border: 0; background: transparent; color: var(--muted); }
+    .reveal-icon { display: inline-block; margin-left: 6px; transition: transform var(--records-duration) var(--ease-standard); }
+    .reveal[aria-expanded="true"] .reveal-icon { transform: rotate(180deg); }
+    .records-clip { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows var(--records-duration) var(--ease-standard), opacity 160ms var(--ease-standard); }
+    .records-clip.is-open { grid-template-rows: 1fr; opacity: 1; }
+    .records-overflow { min-height: 0; overflow: hidden; }
+    .records { margin-top: 20px; padding-top: 32px; border-top: 1px solid color-mix(in srgb, var(--border), transparent 20%); text-align: left; }
+    .summary-row { display: flex; justify-content: space-between; gap: 20px; color: var(--muted); font-size: 14px; }
+    .chart-title { margin: 24px 0 12px; font-size: 18px; font-weight: 600; }
+    .chart { height: 128px; display: flex; align-items: end; justify-content: space-between; gap: clamp(4px, 1.2vw, 12px); padding: 0 2px 8px; border-bottom: 1px solid var(--border); }
+    .bar { flex: 1; min-width: 3px; max-width: 18px; height: var(--h); border-radius: 4px 4px 1px 1px; background: var(--accent); transform-origin: bottom; }
+    .records-clip.is-open .bar { animation: bar-in 240ms var(--ease-standard) both; animation-delay: calc(var(--i) * 10ms); }
+    .bar.zero { height: 2px; background: var(--border); }
+    @keyframes bar-in { from { transform: scaleY(.12); opacity: .35; } }
+    .axis { display: flex; justify-content: space-between; margin-top: 6px; color: var(--muted); font-size: 12px; }
+    .today-detail { margin-top: 14px; color: var(--muted); font-size: 14px; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+    @media (max-width: 767px) {
+      .home { padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom)); }
+      .utility-bar { flex-wrap: wrap; }
+      .home-core { margin-top: 8px; }
+      .display-title { font-size: 28px; }
+      .duration { margin-top: 40px; font-size: 48px; }
+      .start { width: 100%; height: 56px; }
+      .home-stats { align-items: center; flex-direction: column; gap: 2px; }
+      .timer-center { width: 264px; height: 264px; transform: translateY(-46px); }
+      .ring-track, .ring-progress { stroke-width: 5; }
+      .time { font-size: 52px; }
+      .timer-controls { top: auto; bottom: max(32px, calc(env(safe-area-inset-bottom) + 24px)); width: calc(100% - 48px); }
+      .timer-controls .primary, .timer-controls .caution { min-width: 0; height: 56px; flex: 1; padding-inline: 14px; }
+      .hint { display: none; }
+      .modal { padding: 24px; }
+      .complete-view { padding: max(64px, env(safe-area-inset-top)) 24px max(36px, env(safe-area-inset-bottom)); }
+      .complete-view h1 { font-size: 28px; }
+      .result { margin-top: 36px; font-size: 22px; }
+      .complete-actions { display: grid; gap: 10px; margin-top: 34px; }
+      .complete-actions button { width: 100%; height: 56px; }
+      .summary-row { display: grid; gap: 5px; }
+      .chart { height: 112px; gap: 4px; }
+    }
+    @media (max-width: 359px) {
+      .home { padding-inline: 20px; }
+      .utility { padding-inline: 9px; font-size: 13px; }
+      .quick { gap: 6px; }
+      .timer-controls { width: calc(100% - 40px); }
+    }
+    @media (max-height: 620px) and (orientation: landscape) {
+      .timer-stage { grid-template-columns: 1fr 1fr; }
+      .timer-center { width: 240px; height: 240px; transform: none; }
+      .timer-controls { left: 75%; top: 50%; bottom: auto; width: min(280px, 42vw); flex-direction: column; transform: translate(-50%, -50%); }
+      .timer-controls .primary, .timer-controls .caution { width: 100%; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; }
+      body { transition: none; }
+      .view.is-active, .view.is-leaving { animation-duration: 60ms; transform: none; }
+      .ring-visual { animation: none !important; }
+      .ring-progress { transition: none; }
+      .timer-controls, .timer-controls.is-visible, .modal-layer, .modal-layer.is-open, .modal, .modal-layer.is-open .modal { transition-duration: 60ms; transform: none; }
+      .records-clip, .records-clip.is-open { transition: none; }
+      .records-clip.is-open .bar { animation: none; }
+      .reveal-icon { transition: none; }
+    }
+    :root[data-force-reduced="true"] body { transition: none; }
+    :root[data-force-reduced="true"] .view.is-active,
+    :root[data-force-reduced="true"] .view.is-leaving { animation-duration: 60ms; transform: none; }
+    :root[data-force-reduced="true"] .ring-visual { animation: none !important; }
+    :root[data-force-reduced="true"] .ring-progress,
+    :root[data-force-reduced="true"] .records-clip,
+    :root[data-force-reduced="true"] .reveal-icon { transition: none; }
+    :root[data-force-reduced="true"] .records-clip.is-open .bar { animation: none; }
+  </style>
+</head>
+<body>
+  <main class="app" aria-live="off">
+    <section id="home-view" class="view home is-active" data-testid="home-view" aria-labelledby="home-title">
+      <div class="utility-bar" aria-label="偏好">
+        <button id="theme-button" class="utility" type="button" data-testid="theme-button">自然矿石</button>
+        <button id="sound-button" class="utility" type="button" aria-pressed="true" data-testid="sound-button">完成提示音：开</button>
+      </div>
+      <div class="home-core">
+        <h1 id="home-title" class="display-title">冥想</h1>
+        <div class="duration"><span id="duration-value">20</span><small>分钟</small></div>
+        <div class="quick" aria-label="快捷时长">
+          <button class="quick-button" type="button" data-minutes="5" aria-pressed="false">5</button>
+          <button class="quick-button" type="button" data-minutes="10" aria-pressed="false">10</button>
+          <button class="quick-button" type="button" data-minutes="15" aria-pressed="false">15</button>
+          <button class="quick-button" type="button" data-minutes="20" aria-pressed="true">20</button>
+          <button class="quick-button" type="button" data-minutes="30" aria-pressed="false">30</button>
+        </div>
+        <div class="slider-wrap">
+          <div class="slider-row"><span>1</span><input id="duration-slider" type="range" min="1" max="60" value="20" aria-label="冥想时长，分钟"><span>60</span></div>
+          <div id="slider-value" class="slider-value">20</div>
+        </div>
+        <button id="start-button" class="primary start" type="button" data-testid="start-button">开始冥想</button>
+      </div>
+      <div class="home-stats" aria-label="冥想摘要"><span id="home-today">今天 0 分钟</span><span id="home-week">最近 7 天 0 分钟</span></div>
+    </section>
+
+    <section id="timer-view" class="view timer-view" data-testid="timer-view" aria-label="冥想进行中">
+      <div id="timer-stage" class="timer-stage" data-testid="timer-stage">
+        <div class="timer-center">
+          <div class="ring-visual" aria-hidden="true">
+            <svg class="ring-svg" viewBox="0 0 360 360">
+              <circle class="ring-track" cx="180" cy="180" r="165" pathLength="1"></circle>
+              <circle id="ring-progress" class="ring-progress" cx="180" cy="180" r="165" pathLength="1"></circle>
+            </svg>
+          </div>
+          <div class="time-cluster"><div id="time-display" class="time" aria-hidden="true">20:00</div><div id="pause-label" class="pause-label" aria-hidden="true">已暂停</div></div>
+        </div>
+      </div>
+      <div id="timer-controls" class="timer-controls" aria-hidden="true" inert data-testid="timer-controls">
+        <button id="pause-button" class="primary" type="button" data-testid="pause-button">暂停</button>
+        <button id="end-button" class="caution" type="button" data-testid="end-button">提前结束</button>
+      </div>
+      <div class="hint" aria-hidden="true">点击空白区域显示控制</div>
+    </section>
+
+    <section id="complete-view" class="view complete-view" data-testid="complete-view" aria-labelledby="complete-title">
+      <div class="complete-core">
+        <h1 id="complete-title">这一段时间结束了</h1>
+        <div id="result-text" class="result">本次 20 分钟</div>
+        <div id="today-text" class="today">今天累计 20 分钟</div>
+        <div class="complete-actions">
+          <button id="again-button" class="primary" type="button" data-testid="again-button">再次冥想</button>
+          <button id="home-button" class="secondary" type="button" data-testid="home-button">返回首页</button>
+        </div>
+        <button id="records-button" class="reveal" type="button" aria-expanded="false" aria-controls="records-clip" data-testid="records-button">查看最近记录<span class="reveal-icon" aria-hidden="true">⌄</span></button>
+        <div id="records-clip" class="records-clip" aria-hidden="true" inert>
+          <div class="records-overflow"><div class="records">
+            <div class="summary-row"><span id="week-total">最近 7 天　20 分钟</span><span id="week-count">完成 1 次</span></div>
+            <div class="chart-title">15 天趋势</div>
+            <div class="chart" aria-hidden="true">
+              <span class="bar zero" style="--i:0"></span><span class="bar" style="--h:18%;--i:1"></span><span class="bar zero" style="--i:2"></span><span class="bar" style="--h:38%;--i:3"></span><span class="bar zero" style="--i:4"></span><span class="bar" style="--h:58%;--i:5"></span><span class="bar" style="--h:28%;--i:6"></span><span class="bar zero" style="--i:7"></span><span class="bar" style="--h:44%;--i:8"></span><span class="bar zero" style="--i:9"></span><span class="bar" style="--h:32%;--i:10"></span><span class="bar" style="--h:68%;--i:11"></span><span class="bar zero" style="--i:12"></span><span class="bar" style="--h:48%;--i:13"></span><span class="bar" style="--h:92%;--i:14"></span>
+            </div>
+            <div class="axis"><span>7/21</span><span>昨天</span><span>今天</span></div>
+            <div id="today-detail" class="today-detail">今天 20 分钟 · 1 次</div>
+            <p id="chart-description" class="sr-only">最近 15 天趋势：7 月 21 日 0 分钟；7 月 22 日 4 分钟；7 月 23 日 0 分钟；7 月 24 日 8 分钟；7 月 25 日 0 分钟；7 月 26 日 12 分钟；7 月 27 日 6 分钟；7 月 28 日 0 分钟；7 月 29 日 9 分钟；7 月 30 日 0 分钟；7 月 31 日 7 分钟；8 月 1 日 14 分钟；8 月 2 日 0 分钟；8 月 3 日 10 分钟；今天 0 分钟，0 次。</p>
+          </div></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="modal-layer" class="modal-layer" role="presentation" data-testid="end-modal">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-description">
+      <h2 id="modal-title">结束本次冥想？</h2>
+      <p id="modal-description">将记录已经冥想的时间。</p>
+      <div class="modal-actions">
+        <button id="continue-button" class="primary" type="button" data-testid="continue-button">继续冥想</button>
+        <button id="confirm-end-button" class="caution" type="button" data-testid="confirm-end-button">结束并记录</button>
+      </div>
+    </section>
+  </div>
+  <div id="announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+  <script>
+    (() => {
+      const root = document.documentElement;
+      const params = new URLSearchParams(location.search);
+      if (params.get('motion') === 'reduce') root.dataset.forceReduced = 'true';
+      const demoSeconds = Math.max(0, Number(params.get('demoSeconds')) || 0);
+      const views = {
+        home: document.querySelector('#home-view'),
+        timer: document.querySelector('#timer-view'),
+        complete: document.querySelector('#complete-view')
+      };
+      const slider = document.querySelector('#duration-slider');
+      const durationValue = document.querySelector('#duration-value');
+      const sliderValue = document.querySelector('#slider-value');
+      const quickButtons = [...document.querySelectorAll('.quick-button')];
+      const timerControls = document.querySelector('#timer-controls');
+      const pauseButton = document.querySelector('#pause-button');
+      const pauseLabel = document.querySelector('#pause-label');
+      const timeDisplay = document.querySelector('#time-display');
+      const progress = document.querySelector('#ring-progress');
+      const modalLayer = document.querySelector('#modal-layer');
+      const continueButton = document.querySelector('#continue-button');
+      const confirmEndButton = document.querySelector('#confirm-end-button');
+      const modalDescription = document.querySelector('#modal-description');
+      const recordsButton = document.querySelector('#records-button');
+      const recordsClip = document.querySelector('#records-clip');
+      const announcer = document.querySelector('#announcer');
+      let activeView = views.home;
+      let minutes = 20;
+      let plannedSeconds = 1200;
+      let remainingMs = plannedSeconds * 1000;
+      let endAt = 0;
+      let timerTick = 0;
+      let hideTimer = 0;
+      let status = 'ready';
+      let modalOrigin = 'running';
+      let soundOn = true;
+      let todaySeconds = 0;
+      let todayCount = 0;
+
+      function reduced() {
+        return root.dataset.forceReduced === 'true' || matchMedia('(prefers-reduced-motion: reduce)').matches;
+      }
+      function announce(message) {
+        announcer.textContent = '';
+        requestAnimationFrame(() => { announcer.textContent = message; });
+      }
+      function setView(next, focusTarget) {
+        if (activeView === next) return;
+        const previous = activeView;
+        previous.classList.remove('is-active');
+        previous.classList.add('is-leaving');
+        next.classList.add('is-active');
+        activeView = next;
+        window.setTimeout(() => previous.classList.remove('is-leaving'), reduced() ? 60 : 220);
+        if (focusTarget) window.setTimeout(() => focusTarget.focus({ preventScroll: true }), reduced() ? 0 : 80);
+      }
+      function setDuration(value) {
+        minutes = Math.min(60, Math.max(1, Number(value)));
+        slider.value = minutes;
+        durationValue.textContent = minutes;
+        sliderValue.textContent = minutes;
+        quickButtons.forEach(button => button.setAttribute('aria-pressed', String(Number(button.dataset.minutes) === minutes)));
+      }
+      function formatClock(ms) {
+        const total = Math.max(0, Math.ceil(ms / 1000));
+        return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+      }
+      function formatDuration(seconds) {
+        const whole = Math.max(0, Math.round(seconds));
+        const mins = Math.floor(whole / 60);
+        const secs = whole % 60;
+        if (mins && !secs) return `${mins} 分钟`;
+        if (mins) return `${mins} 分 ${secs} 秒`;
+        return `${secs} 秒`;
+      }
+      function updateTimerVisual() {
+        timeDisplay.textContent = formatClock(remainingMs);
+        progress.style.strokeDashoffset = String(1 - Math.max(0, Math.min(1, remainingMs / (plannedSeconds * 1000))));
+      }
+      function tick() {
+        if (status !== 'running') return;
+        remainingMs = Math.max(0, endAt - Date.now());
+        updateTimerVisual();
+        if (remainingMs <= 0) {
+          finish(true);
+          return;
+        }
+        timerTick = window.setTimeout(tick, Math.min(250, remainingMs));
+      }
+      function startSession() {
+        clearTimeout(timerTick);
+        clearTimeout(hideTimer);
+        plannedSeconds = demoSeconds || minutes * 60;
+        remainingMs = plannedSeconds * 1000;
+        endAt = Date.now() + remainingMs;
+        status = 'running';
+        views.timer.classList.remove('is-paused', 'is-confirming');
+        views.timer.removeAttribute('inert');
+        pauseLabel.setAttribute('aria-hidden', 'true');
+        pauseButton.textContent = '暂停';
+        updateTimerVisual();
+        hideControls(true);
+        setView(views.timer);
+        announce('冥想计时已开始');
+        tick();
+      }
+      function showControls() {
+        if (status !== 'running' && status !== 'paused') return;
+        clearTimeout(hideTimer);
+        timerControls.classList.add('is-visible');
+        timerControls.removeAttribute('inert');
+        timerControls.setAttribute('aria-hidden', 'false');
+        if (status === 'running') scheduleHide();
+      }
+      function hideControls(immediate = false) {
+        if (status === 'paused' && !immediate) return;
+        clearTimeout(hideTimer);
+        timerControls.classList.remove('is-visible');
+        timerControls.setAttribute('inert', '');
+        timerControls.setAttribute('aria-hidden', 'true');
+      }
+      function scheduleHide() {
+        clearTimeout(hideTimer);
+        hideTimer = window.setTimeout(() => {
+          if (status === 'running' && !timerControls.matches(':hover') && !timerControls.contains(document.activeElement)) hideControls();
+          else if (status === 'running') scheduleHide();
+        }, 4000);
+      }
+      function toggleControlsFromStage() {
+        if (status === 'paused') return;
+        if (timerControls.classList.contains('is-visible')) hideControls();
+        else showControls();
+      }
+      function freeze() {
+        if (status === 'running') remainingMs = Math.max(0, endAt - Date.now());
+        clearTimeout(timerTick);
+        updateTimerVisual();
+      }
+      function pause() {
+        if (status !== 'running') return;
+        freeze();
+        status = 'paused';
+        views.timer.classList.add('is-paused');
+        pauseLabel.setAttribute('aria-hidden', 'false');
+        pauseButton.textContent = '继续';
+        showControls();
+        announce('计时已暂停');
+      }
+      function resume() {
+        if (status !== 'paused') return;
+        endAt = Date.now() + remainingMs;
+        status = 'running';
+        views.timer.classList.remove('is-paused');
+        pauseLabel.setAttribute('aria-hidden', 'true');
+        pauseButton.textContent = '暂停';
+        showControls();
+        announce('计时已继续');
+        tick();
+      }
+      function openModal() {
+        if (status !== 'running' && status !== 'paused') return;
+        modalOrigin = status;
+        freeze();
+        status = 'confirming';
+        views.timer.classList.add('is-confirming');
+        views.timer.setAttribute('inert', '');
+        clearTimeout(hideTimer);
+        const zero = plannedSeconds * 1000 - remainingMs < 1000;
+        modalDescription.textContent = zero ? '尚未产生可记录的时长。' : '将记录已经冥想的时间。';
+        confirmEndButton.textContent = zero ? '结束并返回' : '结束并记录';
+        modalLayer.classList.add('is-open');
+        window.setTimeout(() => continueButton.focus(), reduced() ? 0 : 80);
+      }
+      function closeModal() {
+        if (status !== 'confirming') return;
+        modalLayer.classList.remove('is-open');
+        views.timer.removeAttribute('inert');
+        views.timer.classList.remove('is-confirming');
+        if (modalOrigin === 'running') {
+          status = 'running';
+          endAt = Date.now() + remainingMs;
+          views.timer.classList.remove('is-paused');
+          pauseLabel.setAttribute('aria-hidden', 'true');
+          pauseButton.textContent = '暂停';
+          showControls();
+          tick();
+        } else {
+          status = 'paused';
+          views.timer.classList.add('is-paused');
+          pauseLabel.setAttribute('aria-hidden', 'false');
+          pauseButton.textContent = '继续';
+          showControls();
+        }
+        window.setTimeout(() => pauseButton.focus(), reduced() ? 0 : 80);
+      }
+      function finish(natural) {
+        if (status === 'complete') return;
+        freeze();
+        const elapsedSeconds = natural ? plannedSeconds : Math.max(0, Math.round((plannedSeconds * 1000 - remainingMs) / 1000));
+        status = 'complete';
+        modalLayer.classList.remove('is-open');
+        views.timer.removeAttribute('inert');
+        views.timer.classList.remove('is-confirming');
+        hideControls(true);
+        if (!natural && elapsedSeconds === 0) {
+          status = 'ready';
+          setView(views.home, document.querySelector('#start-button'));
+          announce('已返回首页');
+          return;
+        }
+        todaySeconds += elapsedSeconds;
+        todayCount += 1;
+        document.querySelector('#complete-title').textContent = natural ? '这一段时间结束了' : '这段练习已记录';
+        document.querySelector('#result-text').textContent = `本次 ${formatDuration(elapsedSeconds)}`;
+        document.querySelector('#today-text').textContent = `今天累计 ${formatDuration(todaySeconds)}`;
+        document.querySelector('#week-total').textContent = `最近 7 天　${formatDuration(todaySeconds + 5700)}`;
+        document.querySelector('#week-count').textContent = `完成 ${todayCount + 5} 次`;
+        document.querySelector('#today-detail').textContent = `今天 ${formatDuration(todaySeconds)} · ${todayCount} 次`;
+        document.querySelector('#chart-description').textContent = `最近 15 天趋势：7 月 21 日 0 分钟；7 月 22 日 4 分钟；7 月 23 日 0 分钟；7 月 24 日 8 分钟；7 月 25 日 0 分钟；7 月 26 日 12 分钟；7 月 27 日 6 分钟；7 月 28 日 0 分钟；7 月 29 日 9 分钟；7 月 30 日 0 分钟；7 月 31 日 7 分钟；8 月 1 日 14 分钟；8 月 2 日 0 分钟；8 月 3 日 10 分钟；今天 ${formatDuration(todaySeconds)}，${todayCount} 次。`;
+        document.querySelector('#home-today').textContent = `今天 ${formatDuration(todaySeconds)}`;
+        document.querySelector('#home-week').textContent = `最近 7 天 ${formatDuration(todaySeconds + 5700)}`;
+        setRecords(false);
+        setView(views.complete, document.querySelector('#again-button'));
+        announce(natural ? '冥想已完成' : '冥想时间已记录');
+      }
+      function setRecords(open) {
+        recordsButton.setAttribute('aria-expanded', String(open));
+        recordsButton.firstChild.textContent = open ? '收起最近记录' : '查看最近记录';
+        recordsClip.classList.toggle('is-open', open);
+        recordsClip.setAttribute('aria-hidden', String(!open));
+        if (open) recordsClip.removeAttribute('inert'); else recordsClip.setAttribute('inert', '');
+      }
+      function goHome() {
+        status = 'ready';
+        setRecords(false);
+        setView(views.home, document.querySelector('#start-button'));
+      }
+
+      slider.addEventListener('input', event => setDuration(event.target.value));
+      quickButtons.forEach(button => button.addEventListener('click', () => setDuration(button.dataset.minutes)));
+      document.querySelector('#start-button').addEventListener('click', startSession);
+      document.querySelector('#again-button').addEventListener('click', startSession);
+      document.querySelector('#home-button').addEventListener('click', goHome);
+      document.querySelector('#timer-stage').addEventListener('click', toggleControlsFromStage);
+      timerControls.addEventListener('pointerdown', event => { event.stopPropagation(); clearTimeout(hideTimer); });
+      timerControls.addEventListener('pointermove', () => status === 'running' && scheduleHide());
+      timerControls.addEventListener('focusin', () => clearTimeout(hideTimer));
+      timerControls.addEventListener('focusout', () => status === 'running' && scheduleHide());
+      pauseButton.addEventListener('click', () => status === 'running' ? pause() : resume());
+      document.querySelector('#end-button').addEventListener('click', openModal);
+      continueButton.addEventListener('click', closeModal);
+      confirmEndButton.addEventListener('click', () => finish(false));
+      modalLayer.addEventListener('click', event => { if (event.target === modalLayer) closeModal(); });
+      recordsButton.addEventListener('click', () => setRecords(recordsButton.getAttribute('aria-expanded') !== 'true'));
+      document.querySelector('#theme-button').addEventListener('click', event => {
+        const mist = root.dataset.theme !== 'mist';
+        root.dataset.theme = mist ? 'mist' : 'stone';
+        event.currentTarget.textContent = mist ? '柔和晨雾' : '自然矿石';
+      });
+      document.querySelector('#sound-button').addEventListener('click', event => {
+        soundOn = !soundOn;
+        event.currentTarget.setAttribute('aria-pressed', String(soundOn));
+        event.currentTarget.textContent = `完成提示音：${soundOn ? '开' : '关'}`;
+      });
+      document.addEventListener('keydown', event => {
+        if (status === 'confirming' && event.key === 'Tab') {
+          const first = continueButton;
+          const last = confirmEndButton;
+          if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+          else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+        }
+        if (event.key === 'Escape') {
+          if (status === 'confirming') closeModal();
+          else if (status === 'running') hideControls();
+        }
+        if (activeView === views.timer && status === 'running' && (event.key === 'Tab' || event.key === ' ')) {
+          if (event.key === ' ') event.preventDefault();
+          showControls();
+        }
+      });
+      setDuration(20);
+      updateTimerVisual();
+    })();
+  </script>
+</body>
+</html>

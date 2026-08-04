@@ -1,0 +1,37 @@
+:root {
+  --canvas: #d8d3c8;
+  --surface: #c9c3b7;
+  --surface-raised: #e7e3da;
+  --text-primary: #33322e;
+  --text-secondary: #5a5751;
+  --accent: #485f55;
+  --accent-contrast: #f5f2eb;
+  --border: #777168;
+  --focus: #4b4036;
+  --caution: #6b554d;
+  --overlay: #26252157;
+  --font-ui: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-display: "Noto Serif SC", "Source Han Serif SC", "Songti SC", STSong, serif;
+  --font-numeric: "Segoe UI", system-ui, sans-serif;
+  --page-enter: 220ms;
+  --controls-enter: 180ms;
+  --controls-exit: 240ms;
+  --records-expand: 240ms;
+  --modal-enter: 180ms;
+  --ease-standard: cubic-bezier(.2, 0, 0, 1);
+  --ease-exit: cubic-bezier(.4, 0, 1, 1);
+}
+
+:root[data-theme="mist"] {
+  --canvas: #e4e8e6;
+  --surface: #f0f2ef;
+  --surface-raised: #f7f8f5;
+  --text-primary: #39413f;
+  --text-secondary: #596965;
+  --accent: #526b69;
+  --accent-contrast: #f7faf8;
+  --border: #7d8885;
+  --focus: #365b59;
+  --caution: #6c5558;
+  --overlay: #27302e52;
+}

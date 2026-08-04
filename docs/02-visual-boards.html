@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>极简冥想计时器 · 阶段 2 高保真画板</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root {
+      color-scheme: light;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+      background: #202321;
+      color: #f2f3f1;
+    }
+    body { margin: 0; padding: 56px 32px 96px; }
+    .document { width: min(1480px, 100%); margin: 0 auto; }
+    .document-header { margin: 0 auto 56px; max-width: 860px; text-align: center; }
+    .eyebrow { margin: 0 0 12px; color: #aeb5b0; font-size: 13px; letter-spacing: .12em; }
+    h1 { margin: 0; font: 500 36px/1.25 "Noto Serif SC", "Source Han Serif SC", "Songti SC", serif; }
+    .intro { margin: 18px auto 0; color: #bdc3bf; font-size: 15px; line-height: 1.7; }
+    .theme { --canvas: #D8D3C8; --surface: #C9C3B7; --surface-raised: #E7E3DA; --text: #33322E; --muted: #5A5751; --accent: #485F55; --on-accent: #F5F2EB; --border: #777168; --caution: #6B554D; margin-top: 72px; }
+    .theme.mist { --canvas: #E4E8E6; --surface: #F0F2EF; --surface-raised: #F7F9F7; --text: #39413F; --muted: #596561; --accent: #506D6B; --on-accent: #F7FAF8; --border: #75827F; --caution: #685A58; }
+    .theme-header { display: flex; align-items: end; justify-content: space-between; gap: 24px; padding-bottom: 18px; border-bottom: 1px solid #424744; }
+    .theme-header h2 { margin: 0; font-size: 26px; font-weight: 550; }
+    .theme-header p { margin: 0; color: #aeb5b0; font-size: 14px; }
+    .palette { display: flex; gap: 7px; margin-top: 14px; }
+    .swatch { width: 26px; height: 26px; border: 1px solid #606662; border-radius: 50%; background: var(--swatch); }
+    .page-board { margin-top: 38px; }
+    .page-board > h3 { margin: 0 0 16px; font-size: 16px; font-weight: 600; color: #d9dcda; letter-spacing: .04em; }
+    .screens { display: grid; grid-template-columns: minmax(0, 1fr) 330px; align-items: start; gap: 28px; }
+    .frame { min-width: 0; }
+    .frame-label { display: flex; justify-content: space-between; margin: 0 0 8px; color: #969e99; font-size: 12px; }
+    .screen { position: relative; overflow: hidden; background: var(--canvas); color: var(--text); border: 1px solid #4d514f; box-shadow: 0 18px 45px rgba(0,0,0,.22); }
+    .screen.desktop { width: 100%; aspect-ratio: 16/10; border-radius: 10px; }
+    .screen.phone { width: 330px; aspect-ratio: 390/844; border-radius: 28px; }
+    .screen button { font: 500 14px/1 "Segoe UI", "Microsoft YaHei", system-ui, sans-serif; color: inherit; }
+    .screen .utility { position: absolute; z-index: 2; top: 4.5%; right: 4%; display: flex; gap: 8px; }
+    .screen.phone .utility { top: 3%; right: 7%; max-width: 86%; flex-wrap: wrap; justify-content: flex-end; }
+    .utility-button { min-height: 36px; padding: 0 12px; border: 1px solid var(--border); border-radius: 10px; background: transparent; font-size: 12px !important; }
+    .home-core { position: absolute; left: 50%; top: 46%; width: min(68%, 580px); transform: translate(-50%, -50%); text-align: center; }
+    .screen.phone .home-core { top: 45%; width: calc(100% - 48px); }
+    .display-title { margin: 0; font: 500 clamp(20px, 2.1vw, 32px)/1.3 "Noto Serif SC", "Source Han Serif SC", "Songti SC", serif; letter-spacing: .08em; }
+    .screen.phone .display-title { font-size: 28px; }
+    .duration { margin-top: 8%; font-size: clamp(38px, 4vw, 56px); line-height: 1.05; letter-spacing: -.025em; }
+    .screen.phone .duration { margin-top: 42px; font-size: 48px; }
+    .duration small { margin-left: 6px; font-size: .38em; letter-spacing: 0; color: var(--muted); }
+    .quick { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 8%; }
+    .quick button { position: relative; height: 44px; border: 1px solid var(--border); border-radius: 12px; background: transparent; }
+    .quick .selected { border: 2px solid var(--accent); background: color-mix(in srgb, var(--surface), transparent 28%); }
+    .quick .selected::after { content: ""; position: absolute; left: 50%; bottom: 5px; width: 4px; height: 4px; transform: translateX(-50%); background: var(--accent); border-radius: 50%; }
+    .slider { margin-top: 6%; }
+    .track-wrap { display: grid; grid-template-columns: 24px 1fr 28px; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; }
+    .track { position: relative; height: 4px; border-radius: 99px; background: linear-gradient(to right, var(--accent) 0 32%, var(--border) 32%); }
+    .thumb { position: absolute; left: 32%; top: 50%; width: 20px; height: 20px; transform: translate(-50%,-50%); border: 2px solid var(--canvas); border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+    .slider-value { margin: 10px 0 0 32%; transform: translateX(-50%); color: var(--muted); font-size: 12px; }
+    .primary, .secondary, .caution { height: 52px; padding: 0 28px; border-radius: 12px; }
+    .primary { border: 1px solid var(--accent); background: var(--accent); color: var(--on-accent) !important; }
+    .secondary { border: 1px solid var(--border); background: transparent; }
+    .caution { border: 1px solid var(--caution); background: transparent; color: var(--caution) !important; }
+    .start { min-width: 190px; margin-top: 7%; }
+    .screen.phone .start { width: 100%; height: 56px; margin-top: 40px; }
+    .home-stats { position: absolute; left: 50%; bottom: 5%; display: flex; gap: 28px; transform: translateX(-50%); color: var(--muted); font-size: 13px; white-space: nowrap; }
+    .screen.phone .home-stats { left: 24px; right: 24px; bottom: 4%; display: grid; gap: 5px; transform: none; font-size: 14px; }
+    .timer-layout { position: absolute; inset: 0; display: grid; place-items: center; }
+    .timer-center { position: relative; display: grid; justify-items: center; }
+    .ring { position: relative; display: grid; place-items: center; width: min(37.5vw, 360px); max-width: 43%; aspect-ratio: 1; border-radius: 50%; background: conic-gradient(var(--accent) 0 78%, var(--border) 78% 100%); }
+    .ring::before { content: ""; position: absolute; inset: 6px; border-radius: inherit; background: var(--canvas); }
+    .time { position: relative; z-index: 1; font-size: clamp(42px, 4.5vw, 64px); font-variant-numeric: tabular-nums; letter-spacing: -.03em; }
+    .timer-controls { position: absolute; left: 50%; top: calc(50% + min(23vw, 220px)); display: flex; gap: 12px; transform: translateX(-50%); white-space: nowrap; }
+    .screen.phone .ring { width: 264px; max-width: none; }
+    .screen.phone .ring::before { inset: 5px; }
+    .screen.phone .time { font-size: 52px; }
+    .screen.phone .timer-center { transform: translateY(-46px); }
+    .screen.phone .timer-controls { top: auto; bottom: max(42px, 6%); width: calc(100% - 48px); }
+    .screen.phone .timer-controls button { flex: 1; height: 56px; padding: 0 14px; }
+    .complete { position: absolute; inset: 0; overflow: hidden auto; padding: 7% 8% 6%; text-align: center; }
+    .complete h4 { margin: 0; font: 500 clamp(21px, 2.1vw, 32px)/1.35 "Noto Serif SC", "Source Han Serif SC", "Songti SC", serif; }
+    .result { margin-top: 5%; font-size: clamp(17px, 1.7vw, 24px); font-weight: 500; }
+    .today { margin-top: 8px; color: var(--muted); font-size: 14px; }
+    .complete-actions { display: flex; justify-content: center; gap: 12px; margin-top: 5%; }
+    .reveal { min-height: 44px; margin-top: 3%; padding: 0 16px; border: 0; background: transparent; color: var(--muted) !important; }
+    .records { width: min(720px, 100%); margin: 3% auto 0; padding-top: 3%; border-top: 1px solid color-mix(in srgb, var(--border), transparent 20%); text-align: left; }
+    .summary-row { display: flex; justify-content: space-between; gap: 20px; color: var(--muted); font-size: 13px; }
+    .chart-title { margin: 3% 0 2%; font-size: 14px; font-weight: 600; }
+    .chart { height: 76px; display: flex; align-items: end; gap: clamp(4px, .8vw, 9px); padding: 0 2px 8px; border-bottom: 1px solid var(--border); }
+    .bar { flex: 1; min-width: 3px; height: var(--h); max-width: 18px; border-radius: 4px 4px 1px 1px; background: var(--accent); }
+    .bar.zero { height: 2px; background: var(--border); }
+    .axis { display: flex; justify-content: space-between; margin-top: 6px; color: var(--muted); font-size: 11px; }
+    .today-detail { margin-top: 10px; color: var(--muted); font-size: 12px; }
+    .screen.phone .complete { padding: 82px 24px 36px; }
+    .screen.phone .complete h4 { font-size: 27px; }
+    .screen.phone .result { margin-top: 36px; font-size: 22px; }
+    .screen.phone .complete-actions { display: grid; gap: 10px; margin-top: 34px; }
+    .screen.phone .complete-actions button { width: 100%; height: 56px; }
+    .screen.phone .reveal { margin-top: 18px; }
+    .screen.phone .records { margin-top: 18px; padding-top: 22px; }
+    .screen.phone .summary-row { display: grid; gap: 5px; }
+    .screen.phone .chart-title { margin: 22px 0 12px; }
+    .screen.phone .chart { height: 104px; gap: 4px; }
+    .screen.phone .today-detail { margin-top: 14px; }
+    .note { margin: 14px 0 0; color: #929a95; font-size: 12px; line-height: 1.6; }
+    @media (max-width: 1050px) {
+      body { padding-inline: 20px; }
+      .screens { grid-template-columns: 1fr; }
+      .frame.mobile { justify-self: center; }
+    }
+    @media (max-width: 560px) {
+      body { padding: 36px 12px 72px; }
+      .theme-header { align-items: start; flex-direction: column; }
+      .screen.phone { width: min(330px, calc(100vw - 36px)); }
+      .screen.desktop { min-width: 680px; }
+      .frame.desktop { overflow-x: auto; padding-bottom: 10px; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; } }
+  </style>
+</head>
+<body>
+  <main class="document">
+    <header class="document-header">
+      <p class="eyebrow">阶段 2 · 高保真视觉基准 · 2026-08-04</p>
+      <h1>极简冥想计时器</h1>
+      <p class="intro">两套主题共享相同排版、间距和组件几何。桌面稿按 1440 × 900、手机稿按 390 × 844 等比缩略；示例数据仅用于层级与图表校验。</p>
+    </header>
+
+    <section class="theme stone" aria-labelledby="stone-title">
+      <header class="theme-header">
+        <div><h2 id="stone-title">B · 自然矿石</h2><div class="palette" aria-label="自然矿石主题色板"><span class="swatch" style="--swatch:#D8D3C8"></span><span class="swatch" style="--swatch:#C9C3B7"></span><span class="swatch" style="--swatch:#33322E"></span><span class="swatch" style="--swatch:#485F55"></span><span class="swatch" style="--swatch:#6B554D"></span></div></div>
+        <p>温暖 · 稳定 · 有触感</p>
+      </header>
+      <div data-theme-content></div>
+    </section>
+
+    <section class="theme mist" aria-labelledby="mist-title">
+      <header class="theme-header">
+        <div><h2 id="mist-title">C · 柔和晨雾</h2><div class="palette" aria-label="柔和晨雾主题色板"><span class="swatch" style="--swatch:#E4E8E6"></span><span class="swatch" style="--swatch:#F0F2EF"></span><span class="swatch" style="--swatch:#39413F"></span><span class="swatch" style="--swatch:#506D6B"></span><span class="swatch" style="--swatch:#685A58"></span></div></div>
+        <p>轻盈 · 清洁 · 通透</p>
+      </header>
+      <div data-theme-content></div>
+    </section>
+  </main>
+
+  <template id="theme-pages">
+    <article class="page-board">
+      <h3>01 / 首页 · 准备</h3>
+      <div class="screens">
+        <div class="frame desktop"><div class="frame-label"><span>桌面</span><span>1440 × 900</span></div><div class="screen desktop">
+          <div class="utility"><button class="utility-button">自然矿石</button><button class="utility-button">完成提示音：开</button></div>
+          <div class="home-core"><h4 class="display-title">冥想</h4><div class="duration">20<small>分钟</small></div><div class="quick"><button>5</button><button>10</button><button>15</button><button class="selected">20</button><button>30</button></div><div class="slider"><div class="track-wrap"><span>1</span><div class="track"><span class="thumb"></span></div><span>60</span></div><div class="slider-value">20</div></div><button class="primary start">开始冥想</button></div>
+          <div class="home-stats"><span>今天 0 分钟</span><span>最近 7 天 0 分钟</span></div>
+        </div></div>
+        <div class="frame mobile"><div class="frame-label"><span>手机</span><span>390 × 844</span></div><div class="screen phone">
+          <div class="utility"><button class="utility-button">自然矿石</button><button class="utility-button">提示音：开</button></div>
+          <div class="home-core"><h4 class="display-title">冥想</h4><div class="duration">20<small>分钟</small></div><div class="quick"><button>5</button><button>10</button><button>15</button><button class="selected">20</button><button>30</button></div><div class="slider"><div class="track-wrap"><span>1</span><div class="track"><span class="thumb"></span></div><span>60</span></div><div class="slider-value">20</div></div><button class="primary start">开始冥想</button></div>
+          <div class="home-stats"><span>今天 0 分钟</span><span>最近 7 天 0 分钟</span></div>
+        </div></div>
+      </div>
+    </article>
+    <article class="page-board">
+      <h3>02 / 冥想进行 · 控制显现</h3>
+      <div class="screens">
+        <div class="frame desktop"><div class="frame-label"><span>桌面</span><span>主体位置在显隐时固定</span></div><div class="screen desktop"><div class="timer-layout"><div class="timer-center"><div class="ring"><span class="time">19:42</span></div></div><div class="timer-controls"><button class="primary">暂停</button><button class="caution">提前结束</button></div></div></div></div>
+        <div class="frame mobile"><div class="frame-label"><span>手机</span><span>控制位于安全区上方</span></div><div class="screen phone"><div class="timer-layout"><div class="timer-center"><div class="ring"><span class="time">19:42</span></div></div><div class="timer-controls"><button class="primary">暂停</button><button class="caution">提前结束</button></div></div></div></div>
+      </div>
+      <p class="note">默认进行态只隐藏控制层；圆环、时间和所有预留位置不发生位移。</p>
+    </article>
+    <article class="page-board">
+      <h3>03 / 完成 · 最近记录展开</h3>
+      <div class="screens">
+        <div class="frame desktop"><div class="frame-label"><span>桌面</span><span>展开区最大宽 720 px</span></div><div class="screen desktop"><div class="complete"><h4>这一段时间结束了</h4><div class="result">本次 20 分钟</div><div class="today">今天累计 35 分钟</div><div class="complete-actions"><button class="primary">再次冥想</button><button class="secondary">返回首页</button></div><button class="reveal">收起最近记录　⌃</button><div class="records"><div class="summary-row"><span>最近 7 天　95 分钟</span><span>完成 6 次</span></div><div class="chart-title">15 天趋势</div><div class="chart" aria-label="15 天趋势示例"><span class="bar" style="--h:18%"></span><span class="bar" style="--h:38%"></span><span class="bar zero"></span><span class="bar" style="--h:58%"></span><span class="bar" style="--h:28%"></span><span class="bar" style="--h:70%"></span><span class="bar zero"></span><span class="bar zero"></span><span class="bar" style="--h:16%"></span><span class="bar zero"></span><span class="bar" style="--h:44%"></span><span class="bar" style="--h:76%"></span><span class="bar" style="--h:32%"></span><span class="bar" style="--h:54%"></span><span class="bar" style="--h:92%"></span></div><div class="axis"><span>7/21</span><span>昨天</span><span>今天</span></div><div class="today-detail">今天 35 分钟 · 2 次</div></div></div></div></div>
+        <div class="frame mobile"><div class="frame-label"><span>手机</span><span>展开后纵向滚动</span></div><div class="screen phone"><div class="complete"><h4>这一段时间结束了</h4><div class="result">本次 20 分钟</div><div class="today">今天累计 35 分钟</div><div class="complete-actions"><button class="primary">再次冥想</button><button class="secondary">返回首页</button></div><button class="reveal">收起最近记录　⌃</button><div class="records"><div class="summary-row"><span>最近 7 天　95 分钟</span><span>完成 6 次</span></div><div class="chart-title">15 天趋势</div><div class="chart"><span class="bar" style="--h:18%"></span><span class="bar" style="--h:38%"></span><span class="bar zero"></span><span class="bar" style="--h:58%"></span><span class="bar" style="--h:28%"></span><span class="bar" style="--h:70%"></span><span class="bar zero"></span><span class="bar zero"></span><span class="bar" style="--h:16%"></span><span class="bar zero"></span><span class="bar" style="--h:44%"></span><span class="bar" style="--h:76%"></span><span class="bar" style="--h:32%"></span><span class="bar" style="--h:54%"></span><span class="bar" style="--h:92%"></span></div><div class="axis"><span>7/21</span><span>昨天</span><span>今天</span></div><div class="today-detail">今天 35 分钟 · 2 次</div></div></div></div></div>
+      </div>
+    </article>
+  </template>
+  <script>
+    const template = document.querySelector('#theme-pages');
+    document.querySelectorAll('[data-theme-content]').forEach((target) => {
+      target.append(template.content.cloneNode(true));
+      const themeName = target.closest('.mist') ? '柔和晨雾' : '自然矿石';
+      target.querySelectorAll('.utility-button:first-child').forEach((button) => button.textContent = themeName);
+    });
+  </script>
+</body>
+</html>

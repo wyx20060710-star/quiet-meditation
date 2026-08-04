@@ -1,0 +1,548 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quiet-meditation.local/schemas/v1/database-snapshot.schema.json",
+  "title": "极简冥想计时器 v1 持久化数据契约",
+  "description": "定义 IndexedDB v1 各对象存储记录及用于测试和迁移的数据库快照。运行时必须逐记录验证；本文件不表示应用需要导出用户数据。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "runtime",
+    "preferences",
+    "dailyRecords",
+    "settlements"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "runtime": {
+      "$ref": "#/$defs/RuntimeSnapshot"
+    },
+    "preferences": {
+      "$ref": "#/$defs/UserPreferences"
+    },
+    "dailyRecords": {
+      "type": "array",
+      "maxItems": 15,
+      "items": {
+        "$ref": "#/$defs/DailyRecord"
+      }
+    },
+    "settlements": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SettlementReceipt"
+      }
+    }
+  },
+  "x-storage": {
+    "databaseName": "quiet-meditation",
+    "databaseVersion": 1,
+    "objectStores": {
+      "runtime": {
+        "keyPath": "key",
+        "allowedKeys": ["activeSession", "uiRuntime"]
+      },
+      "preferences": {
+        "keyPath": "key",
+        "allowedKeys": ["user"]
+      },
+      "dailyRecords": {
+        "keyPath": "dateKey"
+      },
+      "settlements": {
+        "keyPath": "sessionId",
+        "indexes": [
+          {
+            "name": "by-settled-date",
+            "keyPath": "settledDateKey",
+            "unique": false
+          }
+        ]
+      }
+    }
+  },
+  "x-invariants": [
+    "最多存在一个 activeSession 记录。",
+    "plannedDurationSeconds 必须是 60 的倍数，范围 60..3600。",
+    "activeSession.accumulatedMs 必须位于 0..plannedDurationSeconds*1000。",
+    "running.anchorWallMs 必须不早于 createdAtWallMs。",
+    "paused.frozenAtWallMs 和 confirming.frozenAtWallMs 必须不早于 createdAtWallMs。",
+    "自然完成回执的 actualDurationSeconds 必须等于 plannedDurationSeconds。",
+    "提前结束回执的 actualDurationSeconds 不得大于 plannedDurationSeconds。",
+    "recorded=false 只允许 reason=early 且 actualDurationSeconds=0。",
+    "同一个 sessionId 最多存在一个 SettlementReceipt。",
+    "DailyRecord 的 store key 必须等于 dateKey。",
+    "DailyRecord.totalSeconds 和 completionCount 只能由 recorded=true 的回执聚合得到。",
+    "uiRuntime.lastCompletionId 为非空时必须指向存在且 recorded=true 的回执。",
+    "dailyRecords 与 settlements 只保留含当前本地日在内最近 15 个本地自然日。"
+  ],
+  "$defs": {
+    "EpochMilliseconds": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 8640000000000000,
+      "description": "Unix epoch 毫秒；必须是有限整数。"
+    },
+    "DurationMilliseconds": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3600000,
+      "description": "单个活动会话累计的有效毫秒数。"
+    },
+    "DurationSeconds": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3600
+    },
+    "PlannedDurationSeconds": {
+      "type": "integer",
+      "minimum": 60,
+      "maximum": 3600,
+      "multipleOf": 60
+    },
+    "LocalDateKey": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-([0-2][0-9]|3[01])$",
+      "description": "由设备本地年、月、日生成的 YYYY-MM-DD；运行时还必须验证真实日历日期。"
+    },
+    "SessionId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
+    },
+    "RuntimeSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["uiRuntime", "activeSession"],
+      "properties": {
+        "uiRuntime": {
+          "$ref": "#/$defs/UiRuntime"
+        },
+        "activeSession": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/ActiveSession"
+            }
+          ]
+        }
+      }
+    },
+    "UiRuntime": {
+      "title": "runtime/uiRuntime",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "key",
+        "selectedDurationMinutes",
+        "lastCompletionId"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "key": {
+          "const": "uiRuntime"
+        },
+        "selectedDurationMinutes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60,
+          "default": 20
+        },
+        "lastCompletionId": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/SessionId"
+            }
+          ]
+        }
+      }
+    },
+    "UserPreferences": {
+      "title": "preferences/user",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "key", "theme", "soundEnabled"],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "key": {
+          "const": "user"
+        },
+        "theme": {
+          "type": "string",
+          "enum": ["stone", "mist"],
+          "default": "stone"
+        },
+        "soundEnabled": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "ActiveSession": {
+      "title": "runtime/activeSession",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/RunningSession"
+        },
+        {
+          "$ref": "#/$defs/PausedSession"
+        },
+        {
+          "$ref": "#/$defs/ConfirmingSession"
+        }
+      ]
+    },
+    "RunningSession": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "key",
+        "sessionId",
+        "status",
+        "plannedDurationSeconds",
+        "accumulatedMs",
+        "createdAtWallMs",
+        "anchorWallMs"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "key": {
+          "const": "activeSession"
+        },
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        },
+        "status": {
+          "const": "running"
+        },
+        "plannedDurationSeconds": {
+          "$ref": "#/$defs/PlannedDurationSeconds"
+        },
+        "accumulatedMs": {
+          "$ref": "#/$defs/DurationMilliseconds"
+        },
+        "createdAtWallMs": {
+          "$ref": "#/$defs/EpochMilliseconds"
+        },
+        "anchorWallMs": {
+          "$ref": "#/$defs/EpochMilliseconds"
+        }
+      }
+    },
+    "PausedSession": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "key",
+        "sessionId",
+        "status",
+        "plannedDurationSeconds",
+        "accumulatedMs",
+        "createdAtWallMs",
+        "frozenAtWallMs"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "key": {
+          "const": "activeSession"
+        },
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        },
+        "status": {
+          "const": "paused"
+        },
+        "plannedDurationSeconds": {
+          "$ref": "#/$defs/PlannedDurationSeconds"
+        },
+        "accumulatedMs": {
+          "$ref": "#/$defs/DurationMilliseconds"
+        },
+        "createdAtWallMs": {
+          "$ref": "#/$defs/EpochMilliseconds"
+        },
+        "frozenAtWallMs": {
+          "$ref": "#/$defs/EpochMilliseconds"
+        }
+      }
+    },
+    "ConfirmingSession": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "key",
+        "sessionId",
+        "status",
+        "plannedDurationSeconds",
+        "accumulatedMs",
+        "createdAtWallMs",
+        "frozenAtWallMs",
+        "resumeTo"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "key": {
+          "const": "activeSession"
+        },
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        },
+        "status": {
+          "const": "confirming"
+        },
+        "plannedDurationSeconds": {
+          "$ref": "#/$defs/PlannedDurationSeconds"
+        },
+        "accumulatedMs": {
+          "$ref": "#/$defs/DurationMilliseconds"
+        },
+        "createdAtWallMs": {
+          "$ref": "#/$defs/EpochMilliseconds"
+        },
+        "frozenAtWallMs": {
+          "$ref": "#/$defs/EpochMilliseconds"
+        },
+        "resumeTo": {
+          "type": "string",
+          "enum": ["running", "paused"]
+        }
+      }
+    },
+    "DailyRecord": {
+      "title": "dailyRecords/YYYY-MM-DD",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "dateKey",
+        "totalSeconds",
+        "completionCount",
+        "updatedAtWallMs"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "dateKey": {
+          "$ref": "#/$defs/LocalDateKey"
+        },
+        "totalSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "completionCount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "updatedAtWallMs": {
+          "$ref": "#/$defs/EpochMilliseconds"
+        }
+      }
+    },
+    "SettlementReceipt": {
+      "title": "settlements/sessionId",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "sessionId",
+        "reason",
+        "plannedDurationSeconds",
+        "actualDurationSeconds",
+        "recorded",
+        "settledAtWallMs",
+        "settledDateKey",
+        "settledUtcOffsetMinutes",
+        "soundDisposition"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        },
+        "reason": {
+          "type": "string",
+          "enum": ["natural", "early"]
+        },
+        "plannedDurationSeconds": {
+          "$ref": "#/$defs/PlannedDurationSeconds"
+        },
+        "actualDurationSeconds": {
+          "$ref": "#/$defs/DurationSeconds"
+        },
+        "recorded": {
+          "type": "boolean"
+        },
+        "settledAtWallMs": {
+          "$ref": "#/$defs/EpochMilliseconds"
+        },
+        "settledDateKey": {
+          "$ref": "#/$defs/LocalDateKey"
+        },
+        "settledUtcOffsetMinutes": {
+          "type": "integer",
+          "minimum": -840,
+          "maximum": 840,
+          "description": "结算时 Date.getTimezoneOffset() 的相反数；只作结果解释，不用于重新分桶。"
+        },
+        "soundDisposition": {
+          "type": "string",
+          "enum": ["not-eligible", "attempted", "failed"]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "recorded": {
+                "const": false
+              }
+            },
+            "required": ["recorded"]
+          },
+          "then": {
+            "properties": {
+              "reason": {
+                "const": "early"
+              },
+              "actualDurationSeconds": {
+                "const": 0
+              },
+              "soundDisposition": {
+                "const": "not-eligible"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "recorded": {
+                "const": true
+              }
+            },
+            "required": ["recorded"]
+          },
+          "then": {
+            "properties": {
+              "actualDurationSeconds": {
+                "minimum": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "reason": {
+                "const": "natural"
+              }
+            },
+            "required": ["reason"]
+          },
+          "then": {
+            "properties": {
+              "recorded": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "reason": {
+                "const": "early"
+              }
+            },
+            "required": ["reason"]
+          },
+          "then": {
+            "properties": {
+              "soundDisposition": {
+                "const": "not-eligible"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "examples": [
+    {
+      "schemaVersion": 1,
+      "runtime": {
+        "uiRuntime": {
+          "schemaVersion": 1,
+          "key": "uiRuntime",
+          "selectedDurationMinutes": 20,
+          "lastCompletionId": null
+        },
+        "activeSession": {
+          "schemaVersion": 1,
+          "key": "activeSession",
+          "sessionId": "4aa3b47a-0cf8-4f12-93dc-fd1509548459",
+          "status": "running",
+          "plannedDurationSeconds": 1200,
+          "accumulatedMs": 185000,
+          "createdAtWallMs": 1785816000000,
+          "anchorWallMs": 1785816185000
+        }
+      },
+      "preferences": {
+        "schemaVersion": 1,
+        "key": "user",
+        "theme": "stone",
+        "soundEnabled": true
+      },
+      "dailyRecords": [
+        {
+          "schemaVersion": 1,
+          "dateKey": "2026-08-04",
+          "totalSeconds": 1200,
+          "completionCount": 1,
+          "updatedAtWallMs": 1785817200000
+        }
+      ],
+      "settlements": [
+        {
+          "schemaVersion": 1,
+          "sessionId": "5f0e0e16-394c-49c2-b0a0-71c8e5415a5b",
+          "reason": "natural",
+          "plannedDurationSeconds": 1200,
+          "actualDurationSeconds": 1200,
+          "recorded": true,
+          "settledAtWallMs": 1785817200000,
+          "settledDateKey": "2026-08-04",
+          "settledUtcOffsetMinutes": 480,
+          "soundDisposition": "attempted"
+        }
+      ]
+    }
+  ]
+}

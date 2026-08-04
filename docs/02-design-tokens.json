@@ -1,0 +1,99 @@
+{
+  "$schema": "https://design-tokens.github.io/community-group/format/",
+  "meta": {
+    "name": "极简冥想计时器视觉变量",
+    "version": "1.0.0",
+    "stage": 2,
+    "date": "2026-08-04"
+  },
+  "color": {
+    "stone": {
+      "canvas": { "$type": "color", "$value": "#D8D3C8" },
+      "surface": { "$type": "color", "$value": "#C9C3B7" },
+      "surfaceRaised": { "$type": "color", "$value": "#E7E3DA" },
+      "textPrimary": { "$type": "color", "$value": "#33322E" },
+      "textSecondary": { "$type": "color", "$value": "#5A5751" },
+      "accent": { "$type": "color", "$value": "#485F55" },
+      "accentContrast": { "$type": "color", "$value": "#F5F2EB" },
+      "border": { "$type": "color", "$value": "#777168" },
+      "focus": { "$type": "color", "$value": "#4B4036" },
+      "caution": { "$type": "color", "$value": "#6B554D" },
+      "overlay": { "$type": "color", "$value": "#26252157" }
+    },
+    "mist": {
+      "canvas": { "$type": "color", "$value": "#E4E8E6" },
+      "surface": { "$type": "color", "$value": "#F0F2EF" },
+      "surfaceRaised": { "$type": "color", "$value": "#F7F9F7" },
+      "textPrimary": { "$type": "color", "$value": "#39413F" },
+      "textSecondary": { "$type": "color", "$value": "#596561" },
+      "accent": { "$type": "color", "$value": "#506D6B" },
+      "accentContrast": { "$type": "color", "$value": "#F7FAF8" },
+      "border": { "$type": "color", "$value": "#75827F" },
+      "focus": { "$type": "color", "$value": "#425E61" },
+      "caution": { "$type": "color", "$value": "#685A58" },
+      "overlay": { "$type": "color", "$value": "#2B353347" }
+    }
+  },
+  "font": {
+    "family": {
+      "ui": { "$type": "fontFamily", "$value": ["Segoe UI", "PingFang SC", "Microsoft YaHei", "system-ui", "sans-serif"] },
+      "display": { "$type": "fontFamily", "$value": ["Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", "serif"] },
+      "numeric": { "$type": "fontFamily", "$value": ["Segoe UI", "system-ui", "sans-serif"] }
+    },
+    "size": {
+      "caption": { "$type": "dimension", "$value": "12px" },
+      "label": { "$type": "dimension", "$value": "14px" },
+      "body": { "$type": "dimension", "$value": "16px" },
+      "sectionTitle": { "$type": "dimension", "$value": "18px" },
+      "resultMobile": { "$type": "dimension", "$value": "22px" },
+      "resultDesktop": { "$type": "dimension", "$value": "24px" },
+      "pageTitleMobile": { "$type": "dimension", "$value": "28px" },
+      "pageTitleDesktop": { "$type": "dimension", "$value": "32px" },
+      "durationMobile": { "$type": "dimension", "$value": "48px" },
+      "durationDesktop": { "$type": "dimension", "$value": "56px" },
+      "timerMobile": { "$type": "dimension", "$value": "52px" },
+      "timerDesktop": { "$type": "dimension", "$value": "64px" }
+    }
+  },
+  "space": {
+    "1": { "$type": "dimension", "$value": "4px" },
+    "2": { "$type": "dimension", "$value": "8px" },
+    "3": { "$type": "dimension", "$value": "12px" },
+    "4": { "$type": "dimension", "$value": "16px" },
+    "5": { "$type": "dimension", "$value": "20px" },
+    "6": { "$type": "dimension", "$value": "24px" },
+    "8": { "$type": "dimension", "$value": "32px" },
+    "10": { "$type": "dimension", "$value": "40px" },
+    "12": { "$type": "dimension", "$value": "48px" },
+    "16": { "$type": "dimension", "$value": "64px" },
+    "20": { "$type": "dimension", "$value": "80px" },
+    "24": { "$type": "dimension", "$value": "96px" }
+  },
+  "radius": {
+    "control": { "$type": "dimension", "$value": "12px" },
+    "panel": { "$type": "dimension", "$value": "20px" },
+    "pill": { "$type": "dimension", "$value": "999px" }
+  },
+  "size": {
+    "hitTargetMin": { "$type": "dimension", "$value": "44px" },
+    "buttonDesktop": { "$type": "dimension", "$value": "52px" },
+    "buttonMobile": { "$type": "dimension", "$value": "56px" },
+    "ringDesktop": { "$type": "dimension", "$value": "360px" },
+    "ringMobile": { "$type": "dimension", "$value": "264px" },
+    "ringMin": { "$type": "dimension", "$value": "220px" },
+    "content": { "$type": "dimension", "$value": "600px" },
+    "records": { "$type": "dimension", "$value": "720px" }
+  },
+  "border": {
+    "control": { "$type": "dimension", "$value": "1px" },
+    "selected": { "$type": "dimension", "$value": "2px" },
+    "focus": { "$type": "dimension", "$value": "3px" },
+    "ringDesktop": { "$type": "dimension", "$value": "6px" },
+    "ringMobile": { "$type": "dimension", "$value": "5px" }
+  },
+  "breakpoint": {
+    "tablet": { "$type": "dimension", "$value": "768px" },
+    "desktop": { "$type": "dimension", "$value": "1024px" },
+    "lowHeight": { "$type": "dimension", "$value": "620px" }
+  }
+}
