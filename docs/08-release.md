@@ -2,7 +2,7 @@
 
 > 版本：1.0.0  
 > 日期：2026-08-04  
-> 当前结论：正式发布候选包已冻结；远程静态部署与部署后 URL 冒烟待完成
+> 当前结论：正式发布候选包已冻结；Cloudflare Pages 项目已建立，首次生产部署待触发
 
 ## 1. 阶段范围
 
@@ -25,7 +25,7 @@
 | 项目 | 结果 |
 |---|---|
 | 正式版本号 | `1.0.0` |
-| Vitest | 10 个文件、45 项测试全部通过 |
+| Vitest | 10 个文件、46 项测试全部通过 |
 | TypeScript 严格检查 | 通过 |
 | Vite 生产构建 | 通过 |
 | JavaScript | 39.13 kB，gzip 10.97 kB |
@@ -65,7 +65,9 @@ pnpm install --frozen-lockfile
 pnpm release:check
 ```
 
-随后把 `dist/` 的内容上传到所选静态托管目标。当前工作区没有 Git 仓库、远程项目或已指定的部署平台，因此本阶段不会擅自创建云项目、域名或供应商绑定。
+源码已推送到私有 GitHub 仓库 `wyx20060710-star/quiet-meditation`，并连接到 Cloudflare Pages 免费托管。生产分支为 `main`，Cloudflare 构建命令为 `pnpm release:check`，输出目录为 `dist`，预留公开地址为 <https://quiet-meditation.pages.dev>。
+
+Cloudflare GitHub App 仅获准访问 `quiet-meditation` 这一个仓库；未启用付费套餐、自定义域名、分析、数据库或其他付费服务。推送到 `main` 会自动触发生产部署。
 
 发布前保存上一版完整静态产物。若新版本出现阻断问题，回滚上一版文件并确保 `sw.js` 可重新验证；不要只回滚 HTML 而保留不匹配的 Service Worker。
 
@@ -91,8 +93,8 @@ pnpm release:check
 - [x] 发布包支持根目录与子路径静态托管；
 - [x] PWA 必需尺寸图标与离线缓存版本已补齐；
 - [x] 自动化、类型检查、生产构建和本机 HTTP 资源检查通过；
-- [ ] 已选择静态托管目标并获得稳定公开 HTTPS URL；
+- [x] 已选择 Cloudflare Pages 免费静态托管并获得固定 HTTPS 地址 `https://quiet-meditation.pages.dev`；
 - [ ] 已在最终 URL 完成部署后冒烟；
 - [ ] 已记录发布日期与最终 URL。
 
-阶段八已经完成所有不依赖外部部署目标的工作。选择托管目标、完成实际部署并通过最终 URL 冒烟后，才可把阶段八标记为完全通过并进入阶段九。
+GitHub 与 Cloudflare Pages 已连接。首次生产部署及最终 URL 冒烟通过后，才可把阶段八标记为完全通过并进入阶段九。

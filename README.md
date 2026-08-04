@@ -2,6 +2,8 @@
 
 1.0.0 正式发布候选包。应用采用原生 TypeScript、DOM、SVG、CSS 和 IndexedDB，无账号、无业务服务器，所有记录只保存在当前设备。当前版本已完成核心流程、两套主题、完成提示音、恢复、多标签页收敛、离线/PWA，以及响应式、性能和无障碍验收。
 
+生产地址：<https://quiet-meditation.pages.dev>
+
 ## 本地运行
 
 ```bash
