@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { isQuickMinuteSelected } from '../src/ui/render';
 
 const relativeLuminance = (hex: string): number => {
   const channels = [1, 3, 5].map((index) => Number.parseInt(hex.slice(index, index + 2), 16) / 255);
@@ -24,5 +25,13 @@ describe('theme accessibility', () => {
     ['mist button text', '#f7faf8', '#526b69'],
   ])('%s meets WCAG AA for normal text', (_name, foreground, background) => {
     expect(contrastRatio(foreground, background)).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe('duration control accessibility', () => {
+  it('marks a quick time as selected only when it matches the slider value', () => {
+    expect(isQuickMinuteSelected(5, 5)).toBe(true);
+    expect(isQuickMinuteSelected(1, 5)).toBe(false);
+    expect(isQuickMinuteSelected(20, 20)).toBe(true);
   });
 });

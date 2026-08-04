@@ -5,6 +5,10 @@ import { clockwiseRemainingDashOffset } from './ring-progress';
 const QUICK_MINUTES = [5, 10, 15, 20, 30];
 const RING_CIRCUMFERENCE = 2 * Math.PI * 116;
 
+export const isQuickMinuteSelected = (selectedMinutes: number, quickMinutes: number): boolean => (
+  selectedMinutes === quickMinutes
+);
+
 const escapeHtml = (value: string): string => value
   .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
 
@@ -24,7 +28,7 @@ function homeTemplate(controller: AppController): string {
         <h1 id="page-title" tabindex="-1">片刻</h1>
         <p class="duration-value" id="duration-value"><small class="duration-spacer" aria-hidden="true">分钟</small><span>${state.selectedMinutes}</span><small>分钟</small></p>
         <div class="quick-times" aria-label="快捷时长">
-          ${QUICK_MINUTES.map((minutes) => `<button class="quick-time${state.selectedMinutes === minutes ? ' selected' : ''}" data-action="duration" data-minutes="${minutes}" aria-pressed="${state.selectedMinutes === minutes}">${minutes}</button>`).join('')}
+          ${QUICK_MINUTES.map((minutes) => `<button class="quick-time${isQuickMinuteSelected(state.selectedMinutes, minutes) ? ' selected' : ''}" data-action="duration" data-minutes="${minutes}" aria-pressed="${isQuickMinuteSelected(state.selectedMinutes, minutes)}">${minutes}</button>`).join('')}
         </div>
         <label class="range-label" for="duration-range">冥想时长，${state.selectedMinutes} 分钟</label>
         <input id="duration-range" type="range" min="1" max="60" step="1" value="${state.selectedMinutes}" />
@@ -239,6 +243,11 @@ export function mountApp(root: HTMLElement, controller: AppController): void {
     root.querySelector('#duration-value span')!.textContent = String(minutes);
     const label = root.querySelector<HTMLLabelElement>('.range-label');
     if (label) label.textContent = `冥想时长，${minutes} 分钟`;
+    root.querySelectorAll<HTMLButtonElement>('.quick-time').forEach((button) => {
+      const selected = isQuickMinuteSelected(minutes, Number(button.dataset.minutes));
+      button.classList.toggle('selected', selected);
+      button.setAttribute('aria-pressed', String(selected));
+    });
     void controller.setDuration(minutes, false);
   });
   document.addEventListener('keydown', (event) => {
