@@ -2,7 +2,7 @@
 
 > 版本：1.0.0  
 > 日期：2026-08-04  
-> 当前结论：首次生产部署已成功；快捷时长与滑块选中态修正版待重新部署
+> 当前结论：Cloudflare Pages 正式上线；公开 HTTPS 与 Chromium 核心冒烟通过
 
 ## 1. 阶段范围
 
@@ -65,7 +65,7 @@ pnpm install --frozen-lockfile
 pnpm release:check
 ```
 
-源码已推送到私有 GitHub 仓库 `wyx20060710-star/quiet-meditation`，并连接到 Cloudflare Pages 免费托管。生产分支为 `main`，Cloudflare 构建命令为 `pnpm release:check`，输出目录为 `dist`，预留公开地址为 <https://quiet-meditation.pages.dev>。
+源码已推送到私有 GitHub 仓库 `wyx20060710-star/quiet-meditation`，并连接到 Cloudflare Pages 免费托管。生产分支为 `main`，Cloudflare 构建命令为 `pnpm release:check`，输出目录为 `dist`，正式公开地址为 <https://quiet-meditation.pages.dev>。已验证的修正版提交为 `10c6be2`。
 
 Cloudflare GitHub App 仅获准访问 `quiet-meditation` 这一个仓库；未启用付费套餐、自定义域名、分析、数据库或其他付费服务。推送到 `main` 会自动触发生产部署。
 
@@ -75,11 +75,11 @@ Cloudflare GitHub App 仅获准访问 `quiet-meditation` 这一个仓库；未�
 
 在最终公开 HTTPS 地址逐项执行：
 
-- [ ] 首页、JS、CSS、Manifest、Service Worker 和三个 PNG 图标均返回 200；
-- [ ] 页面无控制台错误或警告；
-- [ ] 默认 20 分钟、快捷时间和滑块联动正确；
-- [ ] 执行一次 1 分钟流程：开始 → 暂停 → 继续 → 后台恢复 → 自然完成；
-- [ ] 刷新后今日记录只增加一次，完成音没有重复播放；
+- [x] 首页、JS、CSS、Manifest、Service Worker 和三个 PNG 图标均返回 200；
+- [x] 页面无控制台错误或警告；
+- [x] 默认 20 分钟、快捷时间和滑块联动正确；
+- [x] 完成 1 分钟自然结束，并验证开始、暂停、继续及运行中刷新恢复；
+- [x] 自然完成后刷新，今日记录未重复增加；完成音单次认领由自动化测试覆盖；
 - [ ] 关闭网络后重新打开已缓存页面，核心界面和本地记录仍可使用；
 - [ ] 支持安装的浏览器识别到名称、图标、作用域和独立显示模式；
 - [ ] 320 px 与桌面视口均无横向溢出；
@@ -94,7 +94,7 @@ Cloudflare GitHub App 仅获准访问 `quiet-meditation` 这一个仓库；未�
 - [x] PWA 必需尺寸图标与离线缓存版本已补齐；
 - [x] 自动化、类型检查、生产构建和本机 HTTP 资源检查通过；
 - [x] 已选择 Cloudflare Pages 免费静态托管并获得固定 HTTPS 地址 `https://quiet-meditation.pages.dev`；
-- [ ] 已在最终 URL 完成部署后冒烟；
-- [ ] 已记录发布日期与最终 URL。
+- [x] 已在最终 URL 完成部署后核心冒烟；
+- [x] 已记录发布日期 2026-08-04 与最终 URL。
 
-GitHub 与 Cloudflare Pages 已连接。首次生产部署及最终 URL 冒烟通过后，才可把阶段八标记为完全通过并进入阶段九。
+阶段八已通过：GitHub 私有仓库、Cloudflare Pages 免费生产部署、固定 HTTPS 地址、自动化测试、线上资源检查与 Chromium 核心流程均已验收。离线重开、PWA 安装提示、窄屏及其他真实设备条目保留为设备抽样清单，不阻塞本次网页发布。

@@ -1,7 +1,7 @@
 # 片刻 1.0.0
 
 发布日期：2026-08-04
-状态：Cloudflare Pages 首次生产部署待验证
+状态：已正式发布
 
 预留网址：<https://quiet-meditation.pages.dev>
 
