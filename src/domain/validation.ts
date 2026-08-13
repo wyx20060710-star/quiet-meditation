@@ -48,6 +48,7 @@ export function parsePreferences(value: unknown): UserPreferences {
     key: 'user',
     theme: value.theme === 'stone' || value.theme === 'mist' ? value.theme : defaults.theme,
     soundEnabled: typeof value.soundEnabled === 'boolean' ? value.soundEnabled : defaults.soundEnabled,
+    musicEnabled: typeof value.musicEnabled === 'boolean' ? value.musicEnabled : defaults.musicEnabled,
   };
 }
 

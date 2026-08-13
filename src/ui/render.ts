@@ -1,5 +1,6 @@
 import type { AppController } from '../app/controller';
 import { formatDuration } from '../domain/statistics';
+import { MEDITATION_SOUND_SCAPES } from '../infrastructure/sound';
 import { clockwiseRemainingDashOffset } from './ring-progress';
 
 const QUICK_MINUTES = [5, 10, 15, 20, 30];
@@ -21,6 +22,7 @@ const formatClock = (seconds: number): string => {
 function homeTemplate(controller: AppController): string {
   const state = controller.snapshot();
   const stats = controller.statistics();
+  const musicLabel = MEDITATION_SOUND_SCAPES[state.preferences.theme].label;
   return `
     <main class="page home-page" aria-labelledby="page-title" tabindex="-1">
       <section class="home-card">
@@ -39,6 +41,7 @@ function homeTemplate(controller: AppController): string {
           <button class="preference-button" data-action="theme" data-theme="${state.preferences.theme === 'stone' ? 'mist' : 'stone'}" aria-label="${state.preferences.theme === 'stone' ? '切换到柔和晨雾主题' : '切换到自然矿石主题'}">
             <span aria-hidden="true">${state.preferences.theme === 'stone' ? '◐' : '◑'}</span>${state.preferences.theme === 'stone' ? '自然矿石' : '柔和晨雾'}
           </button>
+          <label class="sound-toggle"><input type="checkbox" data-action="music" ${state.preferences.musicEnabled ? 'checked' : ''} /><span>冥想轻音乐 · ${musicLabel}</span></label>
           <label class="sound-toggle"><input type="checkbox" data-action="sound" ${state.preferences.soundEnabled ? 'checked' : ''} /><span>结束提示音</span></label>
         </div>
       </section>
@@ -57,6 +60,7 @@ function timerTemplate(controller: AppController): string {
   const settling = state.timer.tag === 'settling';
   const visible = !confirming && (state.controlsVisible || paused);
   const progress = controller.getProgress();
+  const musicLabel = MEDITATION_SOUND_SCAPES[state.preferences.theme].label;
   const offset = clockwiseRemainingDashOffset(progress, RING_CIRCUMFERENCE);
   return `
     <main class="page timer-page" aria-label="冥想计时" data-action="reveal-controls" tabindex="-1">
@@ -70,6 +74,7 @@ function timerTemplate(controller: AppController): string {
           <time id="timer-value" class="timer-value" datetime="PT${remaining}S">${formatClock(remaining)}</time>
         </div>
         <div class="timer-controls ${visible ? 'is-visible' : ''}" aria-hidden="${!visible}">
+          <label class="timer-music-toggle"><input type="checkbox" data-action="music" ${state.preferences.musicEnabled ? 'checked' : ''} /><span>${state.preferences.musicEnabled ? `轻音乐 · ${musicLabel}` : '轻音乐已关闭'}</span></label>
           ${paused
             ? '<button class="primary-button compact" data-action="resume">继续</button>'
             : `<button class="secondary-button" data-action="pause" ${settling ? 'disabled' : ''}>暂停</button>`}
@@ -236,6 +241,10 @@ export function mountApp(root: HTMLElement, controller: AppController): void {
     const range = event.target as HTMLInputElement;
     if (range.dataset.action === 'sound') {
       void controller.setSoundEnabled(range.checked);
+      return;
+    }
+    if (range.dataset.action === 'music') {
+      void controller.setMusicEnabled(range.checked);
       return;
     }
     if (range.id !== 'duration-range') return;

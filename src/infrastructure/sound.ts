@@ -1,5 +1,126 @@
+import type { ThemePreference } from '../domain/types';
+
 export interface SoundPort {
   playNaturalCompletion(): Promise<void>;
+}
+
+export interface MeditationMusicPort {
+  start(theme: ThemePreference): Promise<void>;
+  pause(): Promise<void>;
+  stop(): Promise<void>;
+  setTheme(theme: ThemePreference): Promise<void>;
+}
+
+export const MEDITATION_SOUND_SCAPES = {
+  stone: {
+    label: '深岩余韵',
+    frequencies: [110, 164.81, 220],
+    waveforms: ['sine', 'triangle', 'sine'],
+    filterFrequency: 720,
+    lfoFrequency: 0.055,
+    volume: 0.055,
+  },
+  mist: {
+    label: '晨雾微光',
+    frequencies: [174.61, 261.63, 392],
+    waveforms: ['sine', 'sine', 'triangle'],
+    filterFrequency: 1_650,
+    lfoFrequency: 0.085,
+    volume: 0.045,
+  },
+} as const;
+
+export class ThemeMeditationMusic implements MeditationMusicPort {
+  private context: AudioContext | null = null;
+  private master: GainNode | null = null;
+  private voices: OscillatorNode[] = [];
+  private theme: ThemePreference = 'stone';
+  private playing = false;
+
+  async start(theme: ThemePreference): Promise<void> {
+    this.theme = theme;
+    if (!this.context) this.createGraph(theme);
+    if (!this.context || !this.master) throw new Error('Web Audio is unavailable');
+    if (this.context.state === 'suspended') {
+      await Promise.race([
+        this.context.resume().catch(() => undefined),
+        new Promise<void>((resolve) => window.setTimeout(resolve, 250)),
+      ]);
+    }
+    const now = this.context.currentTime;
+    const volume = MEDITATION_SOUND_SCAPES[theme].volume;
+    this.master.gain.cancelScheduledValues(now);
+    this.master.gain.setValueAtTime(Math.max(this.master.gain.value, 0.0001), now);
+    this.master.gain.exponentialRampToValueAtTime(volume, now + 1.8);
+    this.playing = true;
+  }
+
+  async pause(): Promise<void> {
+    if (!this.context || !this.master || !this.playing) return;
+    const now = this.context.currentTime;
+    this.master.gain.cancelScheduledValues(now);
+    this.master.gain.setValueAtTime(Math.max(this.master.gain.value, 0.0001), now);
+    this.master.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
+    this.playing = false;
+  }
+
+  async stop(): Promise<void> {
+    const context = this.context;
+    this.context = null;
+    this.master = null;
+    this.voices = [];
+    this.playing = false;
+    if (context) await context.close().catch(() => undefined);
+  }
+
+  async setTheme(theme: ThemePreference): Promise<void> {
+    if (theme === this.theme) return;
+    const wasPlaying = this.playing;
+    await this.stop();
+    this.theme = theme;
+    if (wasPlaying) await this.start(theme);
+  }
+
+  private createGraph(theme: ThemePreference): void {
+    const AudioContextClass = window.AudioContext
+      ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) throw new Error('Web Audio is unavailable');
+    const context = new AudioContextClass();
+    const soundscape = MEDITATION_SOUND_SCAPES[theme];
+    const master = context.createGain();
+    const filter = context.createBiquadFilter();
+    const motion = context.createGain();
+    const lfo = context.createOscillator();
+    const lfoDepth = context.createGain();
+    master.gain.setValueAtTime(0.0001, context.currentTime);
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(soundscape.filterFrequency, context.currentTime);
+    filter.Q.setValueAtTime(0.45, context.currentTime);
+    motion.gain.setValueAtTime(0.82, context.currentTime);
+    lfo.frequency.setValueAtTime(soundscape.lfoFrequency, context.currentTime);
+    lfoDepth.gain.setValueAtTime(0.12, context.currentTime);
+    lfo.connect(lfoDepth);
+    lfoDepth.connect(motion.gain);
+    motion.connect(filter);
+    filter.connect(master);
+    master.connect(context.destination);
+    lfo.start();
+
+    this.voices = soundscape.frequencies.map((frequency, index) => {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = soundscape.waveforms[index] ?? 'sine';
+      oscillator.frequency.setValueAtTime(frequency, context.currentTime);
+      oscillator.detune.setValueAtTime(index === 1 ? -4 : index === 2 ? 5 : 0, context.currentTime);
+      gain.gain.setValueAtTime(index === 0 ? 0.5 : index === 1 ? 0.28 : 0.16, context.currentTime);
+      oscillator.connect(gain);
+      gain.connect(motion);
+      oscillator.start();
+      return oscillator;
+    });
+    this.context = context;
+    this.master = master;
+  }
 }
 
 export const COMPLETION_MUSIC_DURATION_MS = 10_000;

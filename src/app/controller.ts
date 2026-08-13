@@ -19,9 +19,15 @@ import type { Clock } from '../infrastructure/clock';
 import { NoopChannel } from '../infrastructure/channel';
 import type { ChannelPort } from '../infrastructure/channel';
 import type { SessionRepository } from '../infrastructure/repository';
-import type { SoundPort } from '../infrastructure/sound';
+import type { MeditationMusicPort, SoundPort } from '../infrastructure/sound';
 
 const silentSound: SoundPort = { playNaturalCompletion: async () => undefined };
+const silentMusic: MeditationMusicPort = {
+  start: async () => undefined,
+  pause: async () => undefined,
+  stop: async () => undefined,
+  setTheme: async () => undefined,
+};
 
 export interface AppSnapshot {
   timer: TimerState;
@@ -63,6 +69,7 @@ export class AppController {
     private readonly sound: SoundPort = silentSound,
     private readonly channel: ChannelPort = new NoopChannel(),
     private readonly isVisible: () => boolean = () => typeof document === 'undefined' || document.visibilityState === 'visible',
+    private readonly music: MeditationMusicPort = silentMusic,
   ) {
     this.state.persistent = persistent;
   }
@@ -97,6 +104,7 @@ export class AppController {
       if (receipt?.recorded) this.state.timer = { tag: 'completed', receipt };
     }
     this.unsubscribeChannel = this.channel.subscribe(() => { void this.synchronize(); });
+    await this.syncMeditationMusic();
     this.emit();
   }
 
@@ -156,6 +164,7 @@ export class AppController {
       } else {
         this.state.timer = { tag: 'idle' };
       }
+      await this.syncMeditationMusic();
       this.emit();
     } catch {
       // A transient synchronization failure must not disturb the current in-memory session.
@@ -174,6 +183,9 @@ export class AppController {
   async setTheme(theme: ThemePreference): Promise<void> {
     if (theme !== 'stone' && theme !== 'mist') return;
     this.state.preferences = { ...this.state.preferences, theme };
+    if (this.state.preferences.musicEnabled && this.state.timer.tag === 'running') {
+      await this.music.setTheme(theme).catch(() => undefined);
+    }
     this.emit();
     try {
       await this.repository.setPreferences(this.state.preferences);
@@ -190,11 +202,24 @@ export class AppController {
     } catch { /* The in-memory choice remains valid for this document. */ }
   }
 
+  async setMusicEnabled(musicEnabled: boolean): Promise<void> {
+    this.state.preferences = { ...this.state.preferences, musicEnabled };
+    await this.syncMeditationMusic();
+    this.emit();
+    try {
+      await this.repository.setPreferences(this.state.preferences);
+      this.channel.publish('preferences');
+    } catch { /* The in-memory choice remains valid for this document. */ }
+  }
+
   async start(): Promise<void> {
     if (this.state.busy || (this.state.timer.tag !== 'idle' && this.state.timer.tag !== 'completed')) return;
     this.state.busy = true;
     this.emit();
     try {
+      if (this.state.preferences.musicEnabled) {
+        await this.music.start(this.state.preferences.theme).catch(() => undefined);
+      }
       const sample = sampleClock(this.clock);
       const requested = createRunningSession(this.state.selectedMinutes, crypto.randomUUID(), sample);
       const stored = await this.repository.createSession(requested.persisted);
@@ -213,6 +238,7 @@ export class AppController {
         this.state.timer = { tag: 'confirming', session: stored };
         this.state.controlsVisible = true;
       }
+      await this.syncMeditationMusic();
       this.channel.publish('runtime');
     } catch {
       await this.synchronize();
@@ -232,6 +258,7 @@ export class AppController {
       this.state.timer = timerReducer(previous, { type: 'PAUSED', session: paused });
       this.stopTicker();
       this.state.controlsVisible = true;
+      await this.syncMeditationMusic();
       this.channel.publish('runtime');
     } catch {
       await this.synchronize();
@@ -252,6 +279,7 @@ export class AppController {
       this.state.controlsVisible = true;
       this.startTicker();
       this.scheduleControlsHide();
+      await this.syncMeditationMusic();
       this.channel.publish('runtime');
     } catch {
       await this.synchronize();
@@ -271,6 +299,7 @@ export class AppController {
       this.state.timer = timerReducer(current, { type: 'CONFIRM_OPENED', session: confirmation });
       this.stopTicker();
       this.state.controlsVisible = true;
+      await this.syncMeditationMusic();
       this.channel.publish('runtime');
     } catch {
       await this.synchronize();
@@ -304,6 +333,7 @@ export class AppController {
         this.startTicker();
         this.scheduleControlsHide();
       }
+      await this.syncMeditationMusic();
       this.channel.publish('runtime');
     } catch {
       await this.synchronize();
@@ -341,6 +371,7 @@ export class AppController {
     this.state.timer = timerReducer(previous, { type: 'SETTLEMENT_STARTED', sessionId, reason });
     this.state.busy = true;
     this.stopTicker();
+    await this.music.stop().catch(() => undefined);
     this.emit();
     try {
       const receipt = await this.repository.settleSession({
@@ -389,6 +420,7 @@ export class AppController {
     const receipt = this.state.timer.tag === 'completed' ? this.state.timer.receipt : null;
     this.state.timer = timerReducer(this.state.timer, { type: 'RETURN_HOME' });
     this.state.recordsExpanded = false;
+    await this.music.stop().catch(() => undefined);
     this.emit();
     if (receipt) {
       await this.repository.dismissCompletion(receipt.sessionId).catch(() => undefined);
@@ -481,6 +513,18 @@ export class AppController {
         this.emit();
       }
     }, 4_000);
+  }
+
+  private async syncMeditationMusic(): Promise<void> {
+    try {
+      if (this.state.timer.tag === 'running' && this.state.preferences.musicEnabled) {
+        await this.music.start(this.state.preferences.theme);
+      } else if (this.state.timer.tag === 'paused' || this.state.timer.tag === 'confirming') {
+        await this.music.pause();
+      } else {
+        await this.music.stop();
+      }
+    } catch { /* Background music is optional and must never disturb timing. */ }
   }
 
   private emit(): void { for (const listener of this.listeners) listener(); }

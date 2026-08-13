@@ -9,6 +9,7 @@ export interface UserPreferences {
   key: 'user';
   theme: ThemePreference;
   soundEnabled: boolean;
+  musicEnabled: boolean;
 }
 
 export interface UiRuntime {
@@ -100,4 +101,5 @@ export const defaultPreferences = (): UserPreferences => ({
   key: 'user',
   theme: 'stone',
   soundEnabled: true,
+  musicEnabled: true,
 });
