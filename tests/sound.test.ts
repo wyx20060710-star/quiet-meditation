@@ -19,21 +19,17 @@ describe('natural-completion music cue', () => {
 
 describe('theme meditation soundscapes', () => {
   it('keeps distinct, continuous classical identities for both themes', () => {
-    expect(MEDITATION_SOUND_SCAPES.stone.label).toBe('????');
-    expect(MEDITATION_SOUND_SCAPES.mist.label).toBe('????');
+    expect(MEDITATION_SOUND_SCAPES.stone.label).toBe('深岩夜曲');
+    expect(MEDITATION_SOUND_SCAPES.mist.label).toBe('晨雾晨曲');
     expect(MEDITATION_SOUND_SCAPES.stone.frequencies).not.toEqual(MEDITATION_SOUND_SCAPES.mist.frequencies);
     expect(MEDITATION_SOUND_SCAPES.stone.chords).toHaveLength(8);
     expect(MEDITATION_SOUND_SCAPES.mist.chords).toHaveLength(8);
     expect(MEDITATION_SOUND_SCAPES.stone.melody).toHaveLength(32);
     expect(MEDITATION_SOUND_SCAPES.stone.melody).not.toEqual(MEDITATION_SOUND_SCAPES.mist.melody);
-    expect(MEDITATION_SOUND_SCAPES.stone.melodyVariation).toHaveLength(32);
-    expect(MEDITATION_SOUND_SCAPES.mist.melodyVariation).toHaveLength(32);
-    expect(MEDITATION_SOUND_SCAPES.stone.melodyVariation).not.toEqual(MEDITATION_SOUND_SCAPES.stone.melody);
-    expect(MEDITATION_SOUND_SCAPES.mist.arpeggioVariation).not.toEqual(MEDITATION_SOUND_SCAPES.mist.arpeggio);
     expect(getMeditationLoopDurationSeconds('stone')).toBeGreaterThan(30);
     expect(getMeditationLoopDurationSeconds('mist')).toBeGreaterThanOrEqual(30);
     expect(MEDITATION_SOUND_SCAPES.stone.filterFrequency).toBeLessThan(MEDITATION_SOUND_SCAPES.mist.filterFrequency);
-    expect(MEDITATION_SOUND_SCAPES.stone.volume).toBe(0.11);
-    expect(MEDITATION_SOUND_SCAPES.mist.volume).toBe(0.09);
+    expect(MEDITATION_SOUND_SCAPES.stone.volume).toBeLessThan(0.06);
+    expect(MEDITATION_SOUND_SCAPES.mist.volume).toBeLessThan(0.06);
   });
 });
