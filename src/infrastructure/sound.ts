@@ -11,29 +11,79 @@ export interface MeditationMusicPort {
   setTheme(theme: ThemePreference): Promise<void>;
 }
 
+type MeditationSoundscape = {
+  readonly label: string;
+  readonly frequencies: readonly number[];
+  readonly filterFrequency: number;
+  readonly volume: number;
+  readonly tempo: number;
+  readonly beatsPerLoop: number;
+  readonly chords: readonly (readonly number[])[];
+  readonly arpeggio: readonly number[];
+  readonly melody: readonly (number | null)[];
+  readonly echoSeconds: number;
+};
+
 export const MEDITATION_SOUND_SCAPES = {
   stone: {
-    label: '深岩余韵',
+    label: '????',
     frequencies: [110, 164.81, 220],
-    waveforms: ['sine', 'triangle', 'sine'],
-    filterFrequency: 720,
-    lfoFrequency: 0.055,
+    filterFrequency: 1_150,
     volume: 0.055,
+    tempo: 54,
+    beatsPerLoop: 32,
+    // An original eight-bar minor-key nocturne progression.
+    chords: [
+      [48, 55, 60, 63], [44, 51, 56, 60], [51, 58, 63, 67], [46, 53, 58, 62],
+      [48, 55, 60, 63], [53, 60, 65, 68], [46, 53, 58, 62], [43, 50, 55, 59],
+    ],
+    arpeggio: [0, 2, 1, 3, 2, 1, 3, 2],
+    melody: [
+      67, null, 63, 65, 67, 70, 68, null,
+      67, 63, 60, null, 62, 65, 63, null,
+      67, 70, 72, null, 70, 67, 65, null,
+      63, 65, 67, 62, 63, null, 60, null,
+    ],
+    echoSeconds: 0.44,
   },
   mist: {
-    label: '晨雾微光',
+    label: '????',
     frequencies: [174.61, 261.63, 392],
-    waveforms: ['sine', 'sine', 'triangle'],
-    filterFrequency: 1_650,
-    lfoFrequency: 0.085,
+    filterFrequency: 2_050,
     volume: 0.045,
+    tempo: 60,
+    beatsPerLoop: 32,
+    // An original eight-bar major-key morning piece with a lighter contour.
+    chords: [
+      [53, 60, 65, 69], [48, 55, 60, 64], [50, 57, 62, 65], [46, 53, 58, 62],
+      [53, 60, 65, 69], [57, 64, 69, 72], [50, 57, 62, 65], [48, 55, 60, 64],
+    ],
+    arpeggio: [0, 1, 2, 3, 2, 1, 2, 3],
+    melody: [
+      69, 72, 74, null, 72, 69, 67, null,
+      65, 67, 69, 72, 74, null, 72, null,
+      77, 76, 74, 72, 69, 72, 74, null,
+      72, 69, 67, 65, 67, null, 65, null,
+    ],
+    echoSeconds: 0.36,
   },
-} as const;
+} as const satisfies Record<ThemePreference, MeditationSoundscape>;
+
+export function getMeditationLoopDurationSeconds(theme: ThemePreference): number {
+  const soundscape = MEDITATION_SOUND_SCAPES[theme];
+  return soundscape.beatsPerLoop * 60 / soundscape.tempo;
+}
+
+function midiToFrequency(note: number): number {
+  return 440 * 2 ** ((note - 69) / 12);
+}
 
 export class ThemeMeditationMusic implements MeditationMusicPort {
   private context: AudioContext | null = null;
   private master: GainNode | null = null;
-  private voices: OscillatorNode[] = [];
+  private musicBus: GainNode | null = null;
+  private schedulerId: number | null = null;
+  private nextLoopStart = 0;
   private theme: ThemePreference = 'stone';
   private playing = false;
 
@@ -53,22 +103,31 @@ export class ThemeMeditationMusic implements MeditationMusicPort {
     this.master.gain.setValueAtTime(Math.max(this.master.gain.value, 0.0001), now);
     this.master.gain.exponentialRampToValueAtTime(volume, now + 1.8);
     this.playing = true;
+    this.startScheduler();
   }
 
   async pause(): Promise<void> {
     if (!this.context || !this.master || !this.playing) return;
-    const now = this.context.currentTime;
+    const context = this.context;
+    const now = context.currentTime;
     this.master.gain.cancelScheduledValues(now);
     this.master.gain.setValueAtTime(Math.max(this.master.gain.value, 0.0001), now);
     this.master.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
     this.playing = false;
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 480));
+    if (this.context === context && context.state === 'running') {
+      await context.suspend().catch(() => undefined);
+    }
   }
 
   async stop(): Promise<void> {
     const context = this.context;
+    if (this.schedulerId !== null) window.clearInterval(this.schedulerId);
+    this.schedulerId = null;
     this.context = null;
     this.master = null;
-    this.voices = [];
+    this.musicBus = null;
+    this.nextLoopStart = 0;
     this.playing = false;
     if (context) await context.close().catch(() => undefined);
   }
@@ -89,37 +148,94 @@ export class ThemeMeditationMusic implements MeditationMusicPort {
     const soundscape = MEDITATION_SOUND_SCAPES[theme];
     const master = context.createGain();
     const filter = context.createBiquadFilter();
-    const motion = context.createGain();
-    const lfo = context.createOscillator();
-    const lfoDepth = context.createGain();
+    const musicBus = context.createGain();
+    const echo = context.createDelay(1.5);
+    const echoFeedback = context.createGain();
     master.gain.setValueAtTime(0.0001, context.currentTime);
     filter.type = 'lowpass';
     filter.frequency.setValueAtTime(soundscape.filterFrequency, context.currentTime);
-    filter.Q.setValueAtTime(0.45, context.currentTime);
-    motion.gain.setValueAtTime(0.82, context.currentTime);
-    lfo.frequency.setValueAtTime(soundscape.lfoFrequency, context.currentTime);
-    lfoDepth.gain.setValueAtTime(0.12, context.currentTime);
-    lfo.connect(lfoDepth);
-    lfoDepth.connect(motion.gain);
-    motion.connect(filter);
+    filter.Q.setValueAtTime(0.35, context.currentTime);
+    musicBus.gain.setValueAtTime(0.82, context.currentTime);
+    echo.delayTime.setValueAtTime(soundscape.echoSeconds, context.currentTime);
+    echoFeedback.gain.setValueAtTime(0.16, context.currentTime);
+    musicBus.connect(filter);
     filter.connect(master);
+    filter.connect(echo);
+    echo.connect(echoFeedback);
+    echoFeedback.connect(echo);
+    echo.connect(master);
     master.connect(context.destination);
-    lfo.start();
-
-    this.voices = soundscape.frequencies.map((frequency, index) => {
-      const oscillator = context.createOscillator();
-      const gain = context.createGain();
-      oscillator.type = soundscape.waveforms[index] ?? 'sine';
-      oscillator.frequency.setValueAtTime(frequency, context.currentTime);
-      oscillator.detune.setValueAtTime(index === 1 ? -4 : index === 2 ? 5 : 0, context.currentTime);
-      gain.gain.setValueAtTime(index === 0 ? 0.5 : index === 1 ? 0.28 : 0.16, context.currentTime);
-      oscillator.connect(gain);
-      gain.connect(motion);
-      oscillator.start();
-      return oscillator;
-    });
     this.context = context;
     this.master = master;
+    this.musicBus = musicBus;
+    this.nextLoopStart = context.currentTime + 0.06;
+  }
+
+  private startScheduler(): void {
+    if (!this.context || !this.musicBus) return;
+    if (this.nextLoopStart < this.context.currentTime + 0.02) {
+      this.nextLoopStart = this.context.currentTime + 0.06;
+    }
+    this.scheduleAhead();
+    if (this.schedulerId === null) {
+      this.schedulerId = window.setInterval(() => this.scheduleAhead(), 2_000);
+    }
+  }
+
+  private scheduleAhead(): void {
+    if (!this.context || !this.musicBus) return;
+    const scheduleUntil = this.context.currentTime + 8;
+    while (this.nextLoopStart < scheduleUntil) {
+      this.scheduleLoop(this.nextLoopStart, MEDITATION_SOUND_SCAPES[this.theme]);
+      this.nextLoopStart += getMeditationLoopDurationSeconds(this.theme);
+    }
+  }
+
+  private scheduleLoop(loopStart: number, soundscape: MeditationSoundscape): void {
+    const secondsPerBeat = 60 / soundscape.tempo;
+    const beatsPerBar = 4;
+    soundscape.chords.forEach((chord, barIndex) => {
+      const barStart = loopStart + barIndex * beatsPerBar * secondsPerBeat;
+
+      chord.forEach((note, noteIndex) => {
+        this.scheduleNote(note, barStart, 4.45 * secondsPerBeat, noteIndex === 0 ? 0.035 : 0.024, 'pad');
+      });
+      this.scheduleNote(chord[0]! - 12, barStart, 3.6 * secondsPerBeat, 0.05, 'bass');
+
+      soundscape.arpeggio.forEach((chordIndex, step) => {
+        const note = chord[chordIndex % chord.length]! + (step >= 4 ? 12 : 0);
+        this.scheduleNote(note, barStart + step * 0.5 * secondsPerBeat, 1.75 * secondsPerBeat, 0.075, 'piano');
+      });
+    });
+
+    soundscape.melody.forEach((note, beat) => {
+      if (note === null) return;
+      this.scheduleNote(note, loopStart + beat * secondsPerBeat, 1.65 * secondsPerBeat, 0.095, 'melody');
+    });
+  }
+
+  private scheduleNote(
+    midiNote: number,
+    onset: number,
+    duration: number,
+    volume: number,
+    voice: 'pad' | 'bass' | 'piano' | 'melody',
+  ): void {
+    if (!this.context || !this.musicBus) return;
+    const oscillator = this.context.createOscillator();
+    const gain = this.context.createGain();
+    const attack = voice === 'pad' ? 0.58 : voice === 'bass' ? 0.12 : 0.035;
+    const release = Math.max(onset + attack + 0.08, onset + duration);
+    oscillator.type = voice === 'pad' || voice === 'bass' ? 'sine' : 'triangle';
+    oscillator.frequency.setValueAtTime(midiToFrequency(midiNote), onset);
+    oscillator.detune.setValueAtTime(voice === 'melody' ? 2 : 0, onset);
+    gain.gain.setValueAtTime(0.0001, onset);
+    gain.gain.exponentialRampToValueAtTime(volume, onset + attack);
+    gain.gain.exponentialRampToValueAtTime(0.0001, release);
+    oscillator.connect(gain);
+    gain.connect(this.musicBus);
+    oscillator.start(onset);
+    oscillator.stop(release + 0.04);
   }
 }
 

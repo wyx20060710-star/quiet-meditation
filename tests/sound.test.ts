@@ -3,6 +3,7 @@ import {
   COMPLETION_MELODY,
   COMPLETION_MUSIC_DURATION_MS,
   COMPLETION_VOLUME_SCALE,
+  getMeditationLoopDurationSeconds,
   MEDITATION_SOUND_SCAPES,
 } from '../src/infrastructure/sound';
 
@@ -17,10 +18,16 @@ describe('natural-completion music cue', () => {
 });
 
 describe('theme meditation soundscapes', () => {
-  it('keeps distinct, gentle musical identities for both themes', () => {
-    expect(MEDITATION_SOUND_SCAPES.stone.label).toBe('深岩余韵');
-    expect(MEDITATION_SOUND_SCAPES.mist.label).toBe('晨雾微光');
+  it('keeps distinct, continuous classical identities for both themes', () => {
+    expect(MEDITATION_SOUND_SCAPES.stone.label).toBe('????');
+    expect(MEDITATION_SOUND_SCAPES.mist.label).toBe('????');
     expect(MEDITATION_SOUND_SCAPES.stone.frequencies).not.toEqual(MEDITATION_SOUND_SCAPES.mist.frequencies);
+    expect(MEDITATION_SOUND_SCAPES.stone.chords).toHaveLength(8);
+    expect(MEDITATION_SOUND_SCAPES.mist.chords).toHaveLength(8);
+    expect(MEDITATION_SOUND_SCAPES.stone.melody).toHaveLength(32);
+    expect(MEDITATION_SOUND_SCAPES.stone.melody).not.toEqual(MEDITATION_SOUND_SCAPES.mist.melody);
+    expect(getMeditationLoopDurationSeconds('stone')).toBeGreaterThan(30);
+    expect(getMeditationLoopDurationSeconds('mist')).toBeGreaterThanOrEqual(30);
     expect(MEDITATION_SOUND_SCAPES.stone.filterFrequency).toBeLessThan(MEDITATION_SOUND_SCAPES.mist.filterFrequency);
     expect(MEDITATION_SOUND_SCAPES.stone.volume).toBeLessThan(0.06);
     expect(MEDITATION_SOUND_SCAPES.mist.volume).toBeLessThan(0.06);
