@@ -20,7 +20,9 @@ type MeditationSoundscape = {
   readonly beatsPerLoop: number;
   readonly chords: readonly (readonly number[])[];
   readonly arpeggio: readonly number[];
+  readonly arpeggioVariation: readonly number[];
   readonly melody: readonly (number | null)[];
+  readonly melodyVariation: readonly (number | null)[];
   readonly echoSeconds: number;
 };
 
@@ -28,8 +30,8 @@ export const MEDITATION_SOUND_SCAPES = {
   stone: {
     label: '深岩夜曲',
     frequencies: [110, 164.81, 220],
-    filterFrequency: 1_150,
-    volume: 0.055,
+    filterFrequency: 2_600,
+    volume: 0.11,
     tempo: 54,
     beatsPerLoop: 32,
     // An original eight-bar minor-key nocturne progression.
@@ -38,19 +40,26 @@ export const MEDITATION_SOUND_SCAPES = {
       [48, 55, 60, 63], [53, 60, 65, 68], [46, 53, 58, 62], [43, 50, 55, 59],
     ],
     arpeggio: [0, 2, 1, 3, 2, 1, 3, 2],
+    arpeggioVariation: [0, 1, 3, 2, 1, 3, 2, 1],
     melody: [
       67, null, 63, 65, 67, 70, 68, null,
       67, 63, 60, null, 62, 65, 63, null,
       67, 70, 72, null, 70, 67, 65, null,
       63, 65, 67, 62, 63, null, 60, null,
     ],
+    melodyVariation: [
+      63, 65, 67, null, 70, 68, 67, 65,
+      63, null, 60, 63, 65, 67, 62, null,
+      63, 67, 70, 72, 70, null, 68, 67,
+      65, 63, 62, 65, 63, null, 60, null,
+    ],
     echoSeconds: 0.44,
   },
   mist: {
     label: '晨雾晨曲',
     frequencies: [174.61, 261.63, 392],
-    filterFrequency: 2_050,
-    volume: 0.045,
+    filterFrequency: 3_600,
+    volume: 0.09,
     tempo: 60,
     beatsPerLoop: 32,
     // An original eight-bar major-key morning piece with a lighter contour.
@@ -59,11 +68,18 @@ export const MEDITATION_SOUND_SCAPES = {
       [53, 60, 65, 69], [57, 64, 69, 72], [50, 57, 62, 65], [48, 55, 60, 64],
     ],
     arpeggio: [0, 1, 2, 3, 2, 1, 2, 3],
+    arpeggioVariation: [0, 2, 1, 3, 1, 2, 3, 2],
     melody: [
       69, 72, 74, null, 72, 69, 67, null,
       65, 67, 69, 72, 74, null, 72, null,
       77, 76, 74, 72, 69, 72, 74, null,
       72, 69, 67, 65, 67, null, 65, null,
+    ],
+    melodyVariation: [
+      65, 69, 72, 74, 72, null, 69, 67,
+      69, 72, 77, null, 76, 74, 72, null,
+      74, 77, 81, 79, 77, null, 74, 72,
+      69, 72, 70, 67, 69, null, 65, null,
     ],
     echoSeconds: 0.36,
   },
@@ -84,6 +100,8 @@ export class ThemeMeditationMusic implements MeditationMusicPort {
   private musicBus: GainNode | null = null;
   private schedulerId: number | null = null;
   private nextLoopStart = 0;
+  private loopNumber = 0;
+  private pianoWave: PeriodicWave | null = null;
   private theme: ThemePreference = 'stone';
   private playing = false;
 
@@ -128,6 +146,8 @@ export class ThemeMeditationMusic implements MeditationMusicPort {
     this.master = null;
     this.musicBus = null;
     this.nextLoopStart = 0;
+    this.loopNumber = 0;
+    this.pianoWave = null;
     this.playing = false;
     if (context) await context.close().catch(() => undefined);
   }
@@ -165,9 +185,15 @@ export class ThemeMeditationMusic implements MeditationMusicPort {
     echoFeedback.connect(echo);
     echo.connect(master);
     master.connect(context.destination);
+    const pianoWave = context.createPeriodicWave(
+      new Float32Array([0, 0, 0, 0, 0, 0]),
+      new Float32Array([0, 1, 0.38, 0.2, 0.11, 0.06]),
+      { disableNormalization: false },
+    );
     this.context = context;
     this.master = master;
     this.musicBus = musicBus;
+    this.pianoWave = pianoWave;
     this.nextLoopStart = context.currentTime + 0.06;
   }
 
@@ -186,14 +212,17 @@ export class ThemeMeditationMusic implements MeditationMusicPort {
     if (!this.context || !this.musicBus) return;
     const scheduleUntil = this.context.currentTime + 8;
     while (this.nextLoopStart < scheduleUntil) {
-      this.scheduleLoop(this.nextLoopStart, MEDITATION_SOUND_SCAPES[this.theme]);
+      this.scheduleLoop(this.nextLoopStart, MEDITATION_SOUND_SCAPES[this.theme], this.loopNumber % 2 === 1);
       this.nextLoopStart += getMeditationLoopDurationSeconds(this.theme);
+      this.loopNumber += 1;
     }
   }
 
-  private scheduleLoop(loopStart: number, soundscape: MeditationSoundscape): void {
+  private scheduleLoop(loopStart: number, soundscape: MeditationSoundscape, variation: boolean): void {
     const secondsPerBeat = 60 / soundscape.tempo;
     const beatsPerBar = 4;
+    const arpeggio = variation ? soundscape.arpeggioVariation : soundscape.arpeggio;
+    const melody = variation ? soundscape.melodyVariation : soundscape.melody;
     soundscape.chords.forEach((chord, barIndex) => {
       const barStart = loopStart + barIndex * beatsPerBar * secondsPerBeat;
 
@@ -202,13 +231,13 @@ export class ThemeMeditationMusic implements MeditationMusicPort {
       });
       this.scheduleNote(chord[0]! - 12, barStart, 3.6 * secondsPerBeat, 0.05, 'bass');
 
-      soundscape.arpeggio.forEach((chordIndex, step) => {
+      arpeggio.forEach((chordIndex, step) => {
         const note = chord[chordIndex % chord.length]! + (step >= 4 ? 12 : 0);
         this.scheduleNote(note, barStart + step * 0.5 * secondsPerBeat, 1.75 * secondsPerBeat, 0.075, 'piano');
       });
     });
 
-    soundscape.melody.forEach((note, beat) => {
+    melody.forEach((note, beat) => {
       if (note === null) return;
       this.scheduleNote(note, loopStart + beat * secondsPerBeat, 1.65 * secondsPerBeat, 0.095, 'melody');
     });
@@ -224,13 +253,21 @@ export class ThemeMeditationMusic implements MeditationMusicPort {
     if (!this.context || !this.musicBus) return;
     const oscillator = this.context.createOscillator();
     const gain = this.context.createGain();
-    const attack = voice === 'pad' ? 0.58 : voice === 'bass' ? 0.12 : 0.035;
+    const attack = voice === 'pad' ? 0.58 : voice === 'bass' ? 0.12 : voice === 'piano' ? 0.012 : 0.02;
     const release = Math.max(onset + attack + 0.08, onset + duration);
-    oscillator.type = voice === 'pad' || voice === 'bass' ? 'sine' : 'triangle';
+    if ((voice === 'piano' || voice === 'melody') && this.pianoWave) {
+      oscillator.setPeriodicWave(this.pianoWave);
+    } else {
+      oscillator.type = 'sine';
+    }
     oscillator.frequency.setValueAtTime(midiToFrequency(midiNote), onset);
-    oscillator.detune.setValueAtTime(voice === 'melody' ? 2 : 0, onset);
+    oscillator.detune.setValueAtTime(voice === 'melody' ? 1.5 : 0, onset);
     gain.gain.setValueAtTime(0.0001, onset);
     gain.gain.exponentialRampToValueAtTime(volume, onset + attack);
+    if (voice === 'piano' || voice === 'melody') {
+      const decayAt = Math.min(release - 0.06, onset + (voice === 'piano' ? 0.38 : 0.62));
+      gain.gain.exponentialRampToValueAtTime(volume * (voice === 'piano' ? 0.34 : 0.52), decayAt);
+    }
     gain.gain.exponentialRampToValueAtTime(0.0001, release);
     oscillator.connect(gain);
     gain.connect(this.musicBus);
