@@ -108,7 +108,7 @@ input[type="range"]::-webkit-slider-thumb { width: 22px; height: 22px; margin-to
 .caution { color: var(--caution); }
 .storage-note { margin: 18px auto 0; max-width: 30rem; color: var(--text-secondary); font-size: 13px; }
 .preferences {
-  display: flex; justify-content: center; align-items: center; gap: 18px;
+  display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 10px 18px;
   margin-top: 24px; color: var(--text-secondary); font-size: 13px;
 }
 .preference-button {
@@ -117,6 +117,11 @@ input[type="range"]::-webkit-slider-thumb { width: 22px; height: 22px; margin-to
 .preference-button span { display: inline-block; margin-right: 7px; color: var(--accent); font-size: 17px; }
 .sound-toggle { min-height: 44px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
 .sound-toggle input { width: 18px; height: 18px; accent-color: var(--accent); }
+.timer-music-toggle {
+  min-height: 38px; display: inline-flex; align-items: center; gap: 8px;
+  color: var(--text-secondary); font-size: 13px; cursor: pointer;
+}
+.timer-music-toggle input { width: 18px; height: 18px; accent-color: var(--accent); }
 
 .home-summary {
   width: min(100%, 480px);

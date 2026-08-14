@@ -18,8 +18,8 @@ beforeEach(() => {
 
 describe('phase six preferences', () => {
   it('defaults damaged preference fields independently', () => {
-    expect(parsePreferences({ theme: 'mist', soundEnabled: 'broken' })).toMatchObject({ theme: 'mist', soundEnabled: true });
-    expect(parsePreferences({ theme: 'broken', soundEnabled: false })).toMatchObject({ theme: 'stone', soundEnabled: false });
+    expect(parsePreferences({ theme: 'mist', soundEnabled: 'broken', musicEnabled: false })).toMatchObject({ theme: 'mist', soundEnabled: true, musicEnabled: false });
+    expect(parsePreferences({ theme: 'broken', soundEnabled: false, musicEnabled: 'broken' })).toMatchObject({ theme: 'stone', soundEnabled: false, musicEnabled: true });
   });
 
   it('persists theme and sound choices', async () => {
@@ -28,7 +28,30 @@ describe('phase six preferences', () => {
     await controller.initialize();
     await controller.setTheme('mist');
     await controller.setSoundEnabled(false);
-    expect(await repository.getPreferences()).toMatchObject({ theme: 'mist', soundEnabled: false });
+    await controller.setMusicEnabled(false);
+    expect(await repository.getPreferences()).toMatchObject({ theme: 'mist', soundEnabled: false, musicEnabled: false });
+  });
+
+  it('starts, pauses, resumes, rethemes and stops background music with the session', async () => {
+    const repository = new MemoryRepository();
+    const music = {
+      start: vi.fn(async () => undefined),
+      pause: vi.fn(async () => undefined),
+      stop: vi.fn(async () => undefined),
+      setTheme: vi.fn(async () => undefined),
+    };
+    const controller = new AppController(repository, new TestClock(), true, undefined, undefined, undefined, music);
+    await controller.initialize();
+    await controller.start();
+    expect(music.start).toHaveBeenCalledWith('stone');
+    await controller.pause();
+    expect(music.pause).toHaveBeenCalled();
+    await controller.resume();
+    expect(music.start).toHaveBeenLastCalledWith('stone');
+    await controller.setTheme('mist');
+    expect(music.setTheme).toHaveBeenCalledWith('mist');
+    await controller.setMusicEnabled(false);
+    expect(music.stop).toHaveBeenCalled();
   });
 });
 
