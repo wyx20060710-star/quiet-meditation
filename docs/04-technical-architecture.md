@@ -1,5 +1,7 @@
 # 极简冥想计时器：技术架构与数据约定
 
+> **2.0 修订说明**：计时、结算、IndexedDB 与跨标签页架构保持不变。新增 `ambient-profile` 纯函数域模型；偏好记录独立升级为 v2（`ambientEnabled`、`soundEnabled`）；原主题钢琴端口替换为接收 `AmbientProfile` 的程序化 `AmbientSoundPort`。数据库版本仍为 1，旧 `musicEnabled` 在读取时迁移，旧 `theme` 被忽略。
+
 > 版本：1.0.0  
 > 阶段：4 — 技术架构  
 > 日期：2026-08-04  

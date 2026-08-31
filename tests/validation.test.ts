@@ -4,7 +4,7 @@ import { parseActiveSession, parseDailyRecord, parseUiRuntime } from '../src/dom
 describe('runtime validation', () => {
   it('defaults preference-like runtime fields independently', () => {
     expect(parseUiRuntime({ selectedDurationMinutes: 99, lastCompletionId: 'bad' })).toMatchObject({
-      selectedDurationMinutes: 20,
+      selectedDurationMinutes: 5,
       lastCompletionId: null,
     });
   });

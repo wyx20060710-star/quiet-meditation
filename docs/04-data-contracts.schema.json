@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://quiet-meditation.local/schemas/v1/database-snapshot.schema.json",
-  "title": "极简冥想计时器 v1 持久化数据契约",
-  "description": "定义 IndexedDB v1 各对象存储记录及用于测试和迁移的数据库快照。运行时必须逐记录验证；本文件不表示应用需要导出用户数据。",
+  "title": "片刻 IndexedDB v1 持久化数据契约（偏好 v2）",
+  "description": "定义 IndexedDB v1 各对象存储记录及用于测试和迁移的数据库快照。偏好记录独立升级为 schemaVersion 2；运行时必须兼容读取旧版偏好并逐记录验证。",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -153,7 +153,7 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 60,
-          "default": 20
+          "default": 5
         },
         "lastCompletionId": {
           "oneOf": [
@@ -171,24 +171,19 @@
       "title": "preferences/user",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schemaVersion", "key", "theme", "soundEnabled", "musicEnabled"],
+      "required": ["schemaVersion", "key", "soundEnabled", "ambientEnabled"],
       "properties": {
         "schemaVersion": {
-          "const": 1
+          "const": 2
         },
         "key": {
           "const": "user"
-        },
-        "theme": {
-          "type": "string",
-          "enum": ["stone", "mist"],
-          "default": "stone"
         },
         "soundEnabled": {
           "type": "boolean",
           "default": true
         },
-        "musicEnabled": {
+        "ambientEnabled": {
           "type": "boolean",
           "default": true
         }
@@ -504,7 +499,7 @@
         "uiRuntime": {
           "schemaVersion": 1,
           "key": "uiRuntime",
-          "selectedDurationMinutes": 20,
+          "selectedDurationMinutes": 5,
           "lastCompletionId": null
         },
         "activeSession": {
@@ -519,11 +514,10 @@
         }
       },
       "preferences": {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "key": "user",
-        "theme": "stone",
         "soundEnabled": true,
-        "musicEnabled": true
+        "ambientEnabled": true
       },
       "dailyRecords": [
         {

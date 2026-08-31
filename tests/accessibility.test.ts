@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { isQuickMinuteSelected } from '../src/ui/render';
 
 const relativeLuminance = (hex: string): number => {
@@ -15,14 +17,13 @@ const contrastRatio = (foreground: string, background: string): number => {
   return (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
 };
 
-describe('theme accessibility', () => {
+describe('immersive palette accessibility', () => {
   it.each([
-    ['stone secondary text', '#5a5751', '#d8d3c8'],
-    ['stone accent text', '#485f55', '#d8d3c8'],
-    ['stone button text', '#f5f2eb', '#485f55'],
-    ['mist secondary text', '#596965', '#e4e8e6'],
-    ['mist accent text', '#526b69', '#e4e8e6'],
-    ['mist button text', '#f7faf8', '#526b69'],
+    ['scene primary text over content scrim', '#fffaf0', '#405247'],
+    ['scene secondary text over content scrim', '#e4e3d4', '#405247'],
+    ['primary button text', '#24372d', '#f3ead5'],
+    ['settings panel text', '#26342d', '#f1eee5'],
+    ['settings panel secondary text', '#59665f', '#f1eee5'],
   ])('%s meets WCAG AA for normal text', (_name, foreground, background) => {
     expect(contrastRatio(foreground, background)).toBeGreaterThanOrEqual(4.5);
   });
@@ -33,5 +34,21 @@ describe('duration control accessibility', () => {
     expect(isQuickMinuteSelected(5, 5)).toBe(true);
     expect(isQuickMinuteSelected(1, 5)).toBe(false);
     expect(isQuickMinuteSelected(20, 20)).toBe(true);
+  });
+
+  it('offers a labelled 1–60 minute range directly on the home screen', () => {
+    const source = readFileSync(resolve(import.meta.dirname, '../src/ui/render.ts'), 'utf8');
+    expect(source).toContain('for="home-duration-range"');
+    expect(source).toContain('id="home-duration-range"');
+    expect(source).toContain('data-duration-range type="range" min="1" max="60" step="1"');
+    expect(source).toContain('aria-valuetext="${state.selectedMinutes} 分钟"');
+  });
+
+  it('ships a labelled modal settings surface with keyboard escape handling', () => {
+    const source = readFileSync(resolve(import.meta.dirname, '../src/ui/render.ts'), 'utf8');
+    expect(source).toContain('aria-labelledby="settings-title"');
+    expect(source).toContain('data-settings-panel');
+    expect(source).toContain("event.key === 'Escape'");
+    expect(source).toContain("button:not(:disabled), input:not(:disabled)");
   });
 });

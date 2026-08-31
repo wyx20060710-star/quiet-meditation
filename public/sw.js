@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quiet-meditation-static-v6';
+const CACHE_NAME = 'quiet-meditation-static-v7';
 const CORE = [
   './',
   './index.html',

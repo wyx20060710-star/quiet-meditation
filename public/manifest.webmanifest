@@ -1,13 +1,13 @@
 {
   "name": "片刻 · 冥想计时器",
   "short_name": "片刻",
-  "description": "一个安静、可靠、本地优先的冥想计时器",
+  "description": "进入一处安静的林间，为自己留一个片刻",
   "lang": "zh-CN",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#D8D3C8",
-  "theme_color": "#D8D3C8",
+  "background_color": "#172D2D",
+  "theme_color": "#56634C",
   "icons": [
     {
       "src": "./icons/icon-192.png",
