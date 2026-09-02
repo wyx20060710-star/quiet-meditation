@@ -1,37 +1,78 @@
 :root {
-  --canvas: #d8d3c8;
-  --surface: #c9c3b7;
-  --surface-raised: #e7e3da;
-  --text-primary: #33322e;
-  --text-secondary: #5a5751;
-  --accent: #485f55;
-  --accent-contrast: #f5f2eb;
-  --border: #777168;
-  --focus: #4b4036;
-  --caution: #6b554d;
-  --overlay: #26252157;
+  --canvas-top: #84947a;
+  --canvas-bottom: #293c32;
+  --glow: #f7dca1;
+  --glow-soft: #e9e3b5;
+  --forest-far: #5f745f;
+  --forest-mid: #3d5646;
+  --forest-near: #20392e;
+  --mist: #e5e4cc;
+  --text-primary: #fffaf0;
+  --text-secondary: #e4e3d4;
+  --text-soft: rgb(255 250 240 / 68%);
+  --accent: #f3ead5;
+  --accent-hover: #fff7e8;
+  --accent-contrast: #24372d;
+  --border: rgb(255 250 240 / 46%);
+  --border-soft: rgb(255 250 240 / 20%);
+  --focus: #fff1b9;
+  --caution: #f1c9bd;
+  --overlay: rgb(11 22 18 / 62%);
+  --panel: #f1eee5;
+  --panel-raised: #faf8f1;
+  --panel-text: #26342d;
+  --panel-muted: #59665f;
+  --panel-border: #c8cec7;
+  --shadow: rgb(11 21 17 / 28%);
   --font-ui: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   --font-display: "Noto Serif SC", "Source Han Serif SC", "Songti SC", STSong, serif;
   --font-numeric: "Segoe UI", system-ui, sans-serif;
-  --page-enter: 220ms;
+  --page-enter: 520ms;
+  --scene-settle: 1500ms;
   --controls-enter: 180ms;
   --controls-exit: 240ms;
-  --records-expand: 240ms;
-  --modal-enter: 180ms;
+  --records-expand: 320ms;
+  --modal-enter: 220ms;
   --ease-standard: cubic-bezier(.2, 0, 0, 1);
   --ease-exit: cubic-bezier(.4, 0, 1, 1);
 }
 
-:root[data-theme="mist"] {
-  --canvas: #e4e8e6;
-  --surface: #f0f2ef;
-  --surface-raised: #f7f8f5;
-  --text-primary: #39413f;
-  --text-secondary: #596965;
-  --accent: #526b69;
-  --accent-contrast: #f7faf8;
-  --border: #7d8885;
-  --focus: #365b59;
-  --caution: #6c5558;
-  --overlay: #27302e52;
+:root[data-period="day"] {
+  --canvas-top: #9ba991;
+  --canvas-bottom: #365044;
+  --glow: #f1e5b7;
+  --glow-soft: #dce9cd;
+  --forest-far: #71866d;
+  --forest-mid: #4d6753;
+  --forest-near: #274438;
+  --mist: #e8edda;
+}
+
+:root[data-period="dusk"] {
+  --canvas-top: #9c7d61;
+  --canvas-bottom: #3b4037;
+  --glow: #f4c58d;
+  --glow-soft: #d6ad86;
+  --forest-far: #766657;
+  --forest-mid: #514e42;
+  --forest-near: #2c3831;
+  --mist: #e2bea0;
+  --accent: #f5e4cb;
+}
+
+:root[data-period="night"] {
+  --canvas-top: #183338;
+  --canvas-bottom: #071b20;
+  --glow: #a8c4b9;
+  --glow-soft: #799d96;
+  --forest-far: #244348;
+  --forest-mid: #163438;
+  --forest-near: #0a2529;
+  --mist: #8fafaa;
+  --text-primary: #eff7f3;
+  --text-secondary: #d3e1dc;
+  --accent: #dce9e2;
+  --accent-hover: #edf6f1;
+  --accent-contrast: #142d2e;
+  --focus: #c8eee5;
 }

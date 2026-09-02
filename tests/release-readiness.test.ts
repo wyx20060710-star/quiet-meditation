@@ -26,6 +26,15 @@ describe('phase eight release readiness', () => {
     expect(pngDimensions(resolve(root, 'public/icons/icon-maskable-512.png'))).toEqual([512, 512]);
   });
 
+  it('requests fullscreen display for desktop PWA launches with a standalone fallback', () => {
+    const manifest = JSON.parse(readFileSync(resolve(root, 'public/manifest.webmanifest'), 'utf8')) as {
+      display: string;
+      display_override: string[];
+    };
+    expect(manifest.display).toBe('fullscreen');
+    expect(manifest.display_override).toEqual(['fullscreen', 'standalone']);
+  });
+
   it('uses relative production assets for root or subpath hosting', () => {
     const config = readFileSync(resolve(root, 'vite.config.ts'), 'utf8');
     expect(config).toContain("base: './'");
@@ -33,7 +42,7 @@ describe('phase eight release readiness', () => {
 
   it('advances the offline cache when release assets change', () => {
     const worker = readFileSync(resolve(root, 'public/sw.js'), 'utf8');
-    expect(worker).toContain("quiet-meditation-static-v6");
+    expect(worker).toContain("quiet-meditation-static-v8");
     expect(worker).toContain("'./icons/icon-512.png'");
   });
 

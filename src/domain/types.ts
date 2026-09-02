@@ -1,15 +1,13 @@
 export const SCHEMA_VERSION = 1 as const;
+export const PREFERENCES_SCHEMA_VERSION = 2 as const;
 
 export type SessionStatus = 'running' | 'paused' | 'confirming';
 export type SettlementReason = 'natural' | 'early';
-export type ThemePreference = 'stone' | 'mist';
-
 export interface UserPreferences {
-  schemaVersion: 1;
+  schemaVersion: 2;
   key: 'user';
-  theme: ThemePreference;
   soundEnabled: boolean;
-  musicEnabled: boolean;
+  ambientEnabled: boolean;
 }
 
 export interface UiRuntime {
@@ -92,14 +90,13 @@ export interface SettlementCommand {
 export const defaultUiRuntime = (): UiRuntime => ({
   schemaVersion: SCHEMA_VERSION,
   key: 'uiRuntime',
-  selectedDurationMinutes: 20,
+  selectedDurationMinutes: 5,
   lastCompletionId: null,
 });
 
 export const defaultPreferences = (): UserPreferences => ({
-  schemaVersion: SCHEMA_VERSION,
+  schemaVersion: PREFERENCES_SCHEMA_VERSION,
   key: 'user',
-  theme: 'stone',
   soundEnabled: true,
-  musicEnabled: true,
+  ambientEnabled: true,
 });

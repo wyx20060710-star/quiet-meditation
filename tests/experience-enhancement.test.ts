@@ -17,41 +17,63 @@ beforeEach(() => {
 });
 
 describe('phase six preferences', () => {
-  it('defaults damaged preference fields independently', () => {
-    expect(parsePreferences({ theme: 'mist', soundEnabled: 'broken', musicEnabled: false })).toMatchObject({ theme: 'mist', soundEnabled: true, musicEnabled: false });
-    expect(parsePreferences({ theme: 'broken', soundEnabled: false, musicEnabled: 'broken' })).toMatchObject({ theme: 'stone', soundEnabled: false, musicEnabled: true });
+  it('migrates legacy music preferences and defaults damaged fields independently', () => {
+    expect(parsePreferences({ schemaVersion: 1, theme: 'mist', soundEnabled: 'broken', musicEnabled: false })).toEqual({
+      schemaVersion: 2, key: 'user', soundEnabled: true, ambientEnabled: false,
+    });
+    expect(parsePreferences({ schemaVersion: 2, soundEnabled: false, ambientEnabled: 'broken' })).toEqual({
+      schemaVersion: 2, key: 'user', soundEnabled: false, ambientEnabled: true,
+    });
   });
 
-  it('persists theme and sound choices', async () => {
+  it('persists ambient and completion-sound choices', async () => {
     const repository = new MemoryRepository();
     const controller = new AppController(repository, new TestClock());
     await controller.initialize();
-    await controller.setTheme('mist');
     await controller.setSoundEnabled(false);
-    await controller.setMusicEnabled(false);
-    expect(await repository.getPreferences()).toMatchObject({ theme: 'mist', soundEnabled: false, musicEnabled: false });
+    await controller.setAmbientEnabled(false);
+    expect(await repository.getPreferences()).toEqual({ schemaVersion: 2, key: 'user', soundEnabled: false, ambientEnabled: false });
   });
 
-  it('starts, pauses, resumes, rethemes and stops background music with the session', async () => {
+  it('starts, pauses, resumes and stops the ambient soundscape with the session', async () => {
     const repository = new MemoryRepository();
-    const music = {
+    const ambient = {
       start: vi.fn(async () => undefined),
       pause: vi.fn(async () => undefined),
       stop: vi.fn(async () => undefined),
-      setTheme: vi.fn(async () => undefined),
     };
-    const controller = new AppController(repository, new TestClock(), true, undefined, undefined, undefined, music);
+    const controller = new AppController(repository, new TestClock(), true, undefined, undefined, undefined, ambient);
     await controller.initialize();
     await controller.start();
-    expect(music.start).toHaveBeenCalledWith('stone');
+    expect(ambient.start).toHaveBeenCalledWith(expect.objectContaining({ period: 'day' }));
     await controller.pause();
-    expect(music.pause).toHaveBeenCalled();
+    expect(ambient.pause).toHaveBeenCalled();
     await controller.resume();
-    expect(music.start).toHaveBeenLastCalledWith('stone');
-    await controller.setTheme('mist');
-    expect(music.setTheme).toHaveBeenCalledWith('mist');
-    await controller.setMusicEnabled(false);
-    expect(music.stop).toHaveBeenCalled();
+    expect(ambient.start).toHaveBeenLastCalledWith(expect.objectContaining({ period: 'day' }));
+    await controller.setAmbientEnabled(false);
+    expect(ambient.stop).toHaveBeenCalled();
+  });
+});
+
+describe('time-aware ambience', () => {
+  it('refreshes an idle page after the local period changes', async () => {
+    const clock = new TestClock(new Date(2026, 7, 31, 10, 59).getTime());
+    const controller = new AppController(new MemoryRepository(), clock);
+    await controller.initialize();
+    expect(controller.snapshot().ambientProfile.period).toBe('morning');
+    clock.advance(2 * 60_000);
+    await controller.handleVisibilityChange(false);
+    expect(controller.snapshot().ambientProfile.period).toBe('day');
+  });
+
+  it('locks an active session to the period in which it began', async () => {
+    const clock = new TestClock(new Date(2026, 7, 31, 10, 59).getTime());
+    const controller = new AppController(new MemoryRepository(), clock);
+    await controller.initialize();
+    await controller.start();
+    clock.advance(2 * 60_000);
+    await controller.handleVisibilityChange(false);
+    expect(controller.snapshot().ambientProfile.period).toBe('morning');
   });
 });
 

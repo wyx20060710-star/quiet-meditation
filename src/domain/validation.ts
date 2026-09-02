@@ -30,10 +30,10 @@ export function isLocalDateKey(value: unknown): value is string {
 }
 
 export function parseUiRuntime(value: unknown): UiRuntime {
-  if (!object(value)) return { schemaVersion: 1, key: 'uiRuntime', selectedDurationMinutes: 20, lastCompletionId: null };
+  if (!object(value)) return { schemaVersion: 1, key: 'uiRuntime', selectedDurationMinutes: 5, lastCompletionId: null };
   const selectedDurationMinutes = integerBetween(value.selectedDurationMinutes, 1, 60)
     ? value.selectedDurationMinutes
-    : 20;
+    : 5;
   const lastCompletionId = value.lastCompletionId === null || isUuid(value.lastCompletionId)
     ? value.lastCompletionId
     : null;
@@ -44,11 +44,14 @@ export function parsePreferences(value: unknown): UserPreferences {
   const defaults = defaultPreferences();
   if (!object(value)) return defaults;
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     key: 'user',
-    theme: value.theme === 'stone' || value.theme === 'mist' ? value.theme : defaults.theme,
     soundEnabled: typeof value.soundEnabled === 'boolean' ? value.soundEnabled : defaults.soundEnabled,
-    musicEnabled: typeof value.musicEnabled === 'boolean' ? value.musicEnabled : defaults.musicEnabled,
+    ambientEnabled: typeof value.ambientEnabled === 'boolean'
+      ? value.ambientEnabled
+      : typeof value.musicEnabled === 'boolean'
+        ? value.musicEnabled
+        : defaults.ambientEnabled,
   };
 }
 

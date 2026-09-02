@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  AMBIENT_SOUND_PROFILES,
   COMPLETION_MELODY,
   COMPLETION_MUSIC_DURATION_MS,
   COMPLETION_VOLUME_SCALE,
-  getMeditationLoopDurationSeconds,
-  MEDITATION_SOUND_SCAPES,
 } from '../src/infrastructure/sound';
 
 describe('natural-completion music cue', () => {
@@ -17,23 +16,11 @@ describe('natural-completion music cue', () => {
   });
 });
 
-describe('theme meditation soundscapes', () => {
-  it('keeps distinct, continuous classical identities for both themes', () => {
-    expect(MEDITATION_SOUND_SCAPES.stone.label).toBe('????');
-    expect(MEDITATION_SOUND_SCAPES.mist.label).toBe('????');
-    expect(MEDITATION_SOUND_SCAPES.stone.frequencies).not.toEqual(MEDITATION_SOUND_SCAPES.mist.frequencies);
-    expect(MEDITATION_SOUND_SCAPES.stone.chords).toHaveLength(8);
-    expect(MEDITATION_SOUND_SCAPES.mist.chords).toHaveLength(8);
-    expect(MEDITATION_SOUND_SCAPES.stone.melody).toHaveLength(32);
-    expect(MEDITATION_SOUND_SCAPES.stone.melody).not.toEqual(MEDITATION_SOUND_SCAPES.mist.melody);
-    expect(MEDITATION_SOUND_SCAPES.stone.melodyVariation).toHaveLength(32);
-    expect(MEDITATION_SOUND_SCAPES.mist.melodyVariation).toHaveLength(32);
-    expect(MEDITATION_SOUND_SCAPES.stone.melodyVariation).not.toEqual(MEDITATION_SOUND_SCAPES.stone.melody);
-    expect(MEDITATION_SOUND_SCAPES.mist.arpeggioVariation).not.toEqual(MEDITATION_SOUND_SCAPES.mist.arpeggio);
-    expect(getMeditationLoopDurationSeconds('stone')).toBeGreaterThan(30);
-    expect(getMeditationLoopDurationSeconds('mist')).toBeGreaterThanOrEqual(30);
-    expect(MEDITATION_SOUND_SCAPES.stone.filterFrequency).toBeLessThan(MEDITATION_SOUND_SCAPES.mist.filterFrequency);
-    expect(MEDITATION_SOUND_SCAPES.stone.volume).toBe(0.11);
-    expect(MEDITATION_SOUND_SCAPES.mist.volume).toBe(0.09);
+describe('procedural forest soundscapes', () => {
+  it('keeps every period restrained and distinct', () => {
+    expect(Object.keys(AMBIENT_SOUND_PROFILES)).toEqual(['morning', 'day', 'dusk', 'night']);
+    expect(AMBIENT_SOUND_PROFILES.morning.birdsPerMinute).toBeGreaterThan(AMBIENT_SOUND_PROFILES.night.birdsPerMinute);
+    expect(AMBIENT_SOUND_PROFILES.night.masterVolume).toBeLessThanOrEqual(AMBIENT_SOUND_PROFILES.day.masterVolume);
+    expect(AMBIENT_SOUND_PROFILES.dusk.windGain).not.toBe(AMBIENT_SOUND_PROFILES.morning.windGain);
   });
 });

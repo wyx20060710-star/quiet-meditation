@@ -10,23 +10,24 @@ import {
   resumeSession,
 } from '../domain/clock-model';
 import { deriveStatistics } from '../domain/statistics';
+import { ambientProfileAt, millisecondsUntilNextAmbientPeriod } from '../domain/ambient-profile';
+import type { AmbientProfile } from '../domain/ambient-profile';
 import { timerReducer } from '../domain/timer-machine';
 import type { TimerState } from '../domain/timer-machine';
 import { defaultPreferences } from '../domain/types';
-import type { ActiveSession, DailyRecord, RunningSession, ThemePreference, UserPreferences } from '../domain/types';
+import type { ActiveSession, DailyRecord, RunningSession, UserPreferences } from '../domain/types';
 import { BrowserClock, sampleClock } from '../infrastructure/clock';
 import type { Clock } from '../infrastructure/clock';
 import { NoopChannel } from '../infrastructure/channel';
 import type { ChannelPort } from '../infrastructure/channel';
 import type { SessionRepository } from '../infrastructure/repository';
-import type { MeditationMusicPort, SoundPort } from '../infrastructure/sound';
+import type { AmbientSoundPort, SoundPort } from '../infrastructure/sound';
 
 const silentSound: SoundPort = { playNaturalCompletion: async () => undefined };
-const silentMusic: MeditationMusicPort = {
+const silentAmbient: AmbientSoundPort = {
   start: async () => undefined,
   pause: async () => undefined,
   stop: async () => undefined,
-  setTheme: async () => undefined,
 };
 
 export interface AppSnapshot {
@@ -38,6 +39,8 @@ export interface AppSnapshot {
   persistent: boolean;
   busy: boolean;
   preferences: UserPreferences;
+  ambientProfile: AmbientProfile;
+  settingsOpen: boolean;
 }
 
 type Listener = () => void;
@@ -45,18 +48,21 @@ type Listener = () => void;
 export class AppController {
   private state: AppSnapshot = {
     timer: { tag: 'idle' },
-    selectedMinutes: 20,
+    selectedMinutes: 5,
     records: [],
     recordsExpanded: false,
     controlsVisible: false,
     persistent: true,
     busy: false,
     preferences: defaultPreferences(),
+    ambientProfile: ambientProfileAt(new Date(0)),
+    settingsOpen: false,
   };
   private listeners = new Set<Listener>();
   private tickListeners = new Set<Listener>();
   private ticker: number | undefined;
   private controlsTimeout: number | undefined;
+  private ambientTimeout: number | undefined;
   private settlementLock = false;
   private checkpointLock = false;
   private synchronization: Promise<void> | null = null;
@@ -69,9 +75,10 @@ export class AppController {
     private readonly sound: SoundPort = silentSound,
     private readonly channel: ChannelPort = new NoopChannel(),
     private readonly isVisible: () => boolean = () => typeof document === 'undefined' || document.visibilityState === 'visible',
-    private readonly music: MeditationMusicPort = silentMusic,
+    private readonly ambient: AmbientSoundPort = silentAmbient,
   ) {
     this.state.persistent = persistent;
+    this.state.ambientProfile = ambientProfileAt(new Date(this.clock.wallNowMs()));
   }
 
   subscribe(listener: Listener): () => void {
@@ -104,7 +111,9 @@ export class AppController {
       if (receipt?.recorded) this.state.timer = { tag: 'completed', receipt };
     }
     this.unsubscribeChannel = this.channel.subscribe(() => { void this.synchronize(); });
-    await this.syncMeditationMusic();
+    this.refreshAmbientProfile(false);
+    this.scheduleAmbientProfileRefresh();
+    await this.syncAmbientSound();
     this.emit();
   }
 
@@ -164,7 +173,9 @@ export class AppController {
       } else {
         this.state.timer = { tag: 'idle' };
       }
-      await this.syncMeditationMusic();
+      this.refreshAmbientProfile(false);
+      this.scheduleAmbientProfileRefresh();
+      await this.syncAmbientSound();
       this.emit();
     } catch {
       // A transient synchronization failure must not disturb the current in-memory session.
@@ -180,19 +191,6 @@ export class AppController {
     if (notify) this.emit();
   }
 
-  async setTheme(theme: ThemePreference): Promise<void> {
-    if (theme !== 'stone' && theme !== 'mist') return;
-    this.state.preferences = { ...this.state.preferences, theme };
-    if (this.state.preferences.musicEnabled && this.state.timer.tag === 'running') {
-      await this.music.setTheme(theme).catch(() => undefined);
-    }
-    this.emit();
-    try {
-      await this.repository.setPreferences(this.state.preferences);
-      this.channel.publish('preferences');
-    } catch { /* The in-memory choice remains valid for this document. */ }
-  }
-
   async setSoundEnabled(soundEnabled: boolean): Promise<void> {
     this.state.preferences = { ...this.state.preferences, soundEnabled };
     this.emit();
@@ -202,9 +200,9 @@ export class AppController {
     } catch { /* The in-memory choice remains valid for this document. */ }
   }
 
-  async setMusicEnabled(musicEnabled: boolean): Promise<void> {
-    this.state.preferences = { ...this.state.preferences, musicEnabled };
-    await this.syncMeditationMusic();
+  async setAmbientEnabled(ambientEnabled: boolean): Promise<void> {
+    this.state.preferences = { ...this.state.preferences, ambientEnabled };
+    await this.syncAmbientSound();
     this.emit();
     try {
       await this.repository.setPreferences(this.state.preferences);
@@ -215,10 +213,13 @@ export class AppController {
   async start(): Promise<void> {
     if (this.state.busy || (this.state.timer.tag !== 'idle' && this.state.timer.tag !== 'completed')) return;
     this.state.busy = true;
+    this.state.settingsOpen = false;
+    this.refreshAmbientProfile(false);
+    this.clearAmbientProfileRefresh();
     this.emit();
     try {
-      if (this.state.preferences.musicEnabled) {
-        await this.music.start(this.state.preferences.theme).catch(() => undefined);
+      if (this.state.preferences.ambientEnabled) {
+        await this.ambient.start(this.state.ambientProfile).catch(() => undefined);
       }
       const sample = sampleClock(this.clock);
       const requested = createRunningSession(this.state.selectedMinutes, crypto.randomUUID(), sample);
@@ -238,7 +239,7 @@ export class AppController {
         this.state.timer = { tag: 'confirming', session: stored };
         this.state.controlsVisible = true;
       }
-      await this.syncMeditationMusic();
+      await this.syncAmbientSound();
       this.channel.publish('runtime');
     } catch {
       await this.synchronize();
@@ -258,7 +259,7 @@ export class AppController {
       this.state.timer = timerReducer(previous, { type: 'PAUSED', session: paused });
       this.stopTicker();
       this.state.controlsVisible = true;
-      await this.syncMeditationMusic();
+      await this.syncAmbientSound();
       this.channel.publish('runtime');
     } catch {
       await this.synchronize();
@@ -279,7 +280,7 @@ export class AppController {
       this.state.controlsVisible = true;
       this.startTicker();
       this.scheduleControlsHide();
-      await this.syncMeditationMusic();
+      await this.syncAmbientSound();
       this.channel.publish('runtime');
     } catch {
       await this.synchronize();
@@ -299,7 +300,7 @@ export class AppController {
       this.state.timer = timerReducer(current, { type: 'CONFIRM_OPENED', session: confirmation });
       this.stopTicker();
       this.state.controlsVisible = true;
-      await this.syncMeditationMusic();
+      await this.syncAmbientSound();
       this.channel.publish('runtime');
     } catch {
       await this.synchronize();
@@ -333,7 +334,7 @@ export class AppController {
         this.startTicker();
         this.scheduleControlsHide();
       }
-      await this.syncMeditationMusic();
+      await this.syncAmbientSound();
       this.channel.publish('runtime');
     } catch {
       await this.synchronize();
@@ -371,7 +372,7 @@ export class AppController {
     this.state.timer = timerReducer(previous, { type: 'SETTLEMENT_STARTED', sessionId, reason });
     this.state.busy = true;
     this.stopTicker();
-    await this.music.stop().catch(() => undefined);
+    await this.ambient.stop().catch(() => undefined);
     this.emit();
     try {
       const receipt = await this.repository.settleSession({
@@ -420,7 +421,9 @@ export class AppController {
     const receipt = this.state.timer.tag === 'completed' ? this.state.timer.receipt : null;
     this.state.timer = timerReducer(this.state.timer, { type: 'RETURN_HOME' });
     this.state.recordsExpanded = false;
-    await this.music.stop().catch(() => undefined);
+    await this.ambient.stop().catch(() => undefined);
+    this.refreshAmbientProfile(false);
+    this.scheduleAmbientProfileRefresh();
     this.emit();
     if (receipt) {
       await this.repository.dismissCompletion(receipt.sessionId).catch(() => undefined);
@@ -430,7 +433,11 @@ export class AppController {
 
   async handleVisibilityChange(hidden: boolean): Promise<void> {
     if (hidden) await this.checkpointRunning();
-    else await this.synchronize();
+    else {
+      await this.synchronize();
+      this.refreshAmbientProfile();
+      this.scheduleAmbientProfileRefresh();
+    }
   }
 
   async checkpointRunning(): Promise<void> {
@@ -458,6 +465,18 @@ export class AppController {
   }
 
   toggleRecords(): void { this.state.recordsExpanded = !this.state.recordsExpanded; this.emit(); }
+
+  openSettings(): void {
+    if (this.state.timer.tag !== 'idle') return;
+    this.state.settingsOpen = true;
+    this.emit();
+  }
+
+  closeSettings(): void {
+    if (!this.state.settingsOpen) return;
+    this.state.settingsOpen = false;
+    this.emit();
+  }
 
   revealControls(): void {
     if (this.state.timer.tag !== 'running') return;
@@ -515,16 +534,48 @@ export class AppController {
     }, 4_000);
   }
 
-  private async syncMeditationMusic(): Promise<void> {
+  private async syncAmbientSound(): Promise<void> {
     try {
-      if (this.state.timer.tag === 'running' && this.state.preferences.musicEnabled) {
-        await this.music.start(this.state.preferences.theme);
+      if (this.state.timer.tag === 'running' && this.state.preferences.ambientEnabled) {
+        await this.ambient.start(this.state.ambientProfile);
       } else if (this.state.timer.tag === 'paused' || this.state.timer.tag === 'confirming') {
-        await this.music.pause();
+        await this.ambient.pause();
       } else {
-        await this.music.stop();
+        await this.ambient.stop();
       }
-    } catch { /* Background music is optional and must never disturb timing. */ }
+    } catch { /* Ambient sound is optional and must never disturb timing. */ }
+  }
+
+  private ambientDateForState(): Date {
+    const timer = this.state.timer;
+    if (timer.tag === 'running') return new Date(timer.session.persisted.createdAtWallMs);
+    if (timer.tag === 'paused' || timer.tag === 'confirming') return new Date(timer.session.createdAtWallMs);
+    if (timer.tag === 'completed') {
+      return new Date(timer.receipt.settledAtWallMs - timer.receipt.actualDurationSeconds * 1000);
+    }
+    return new Date(this.clock.wallNowMs());
+  }
+
+  private refreshAmbientProfile(notify = true): void {
+    const next = ambientProfileAt(this.ambientDateForState());
+    const changed = next.period !== this.state.ambientProfile.period || next.prompt !== this.state.ambientProfile.prompt;
+    this.state.ambientProfile = next;
+    if (notify && changed) this.emit();
+  }
+
+  private scheduleAmbientProfileRefresh(): void {
+    this.clearAmbientProfileRefresh();
+    if (this.state.timer.tag !== 'idle') return;
+    const now = new Date(this.clock.wallNowMs());
+    this.ambientTimeout = window.setTimeout(() => {
+      this.refreshAmbientProfile();
+      this.scheduleAmbientProfileRefresh();
+    }, millisecondsUntilNextAmbientPeriod(now) + 50);
+  }
+
+  private clearAmbientProfileRefresh(): void {
+    if (this.ambientTimeout !== undefined) window.clearTimeout(this.ambientTimeout);
+    this.ambientTimeout = undefined;
   }
 
   private emit(): void { for (const listener of this.listeners) listener(); }
