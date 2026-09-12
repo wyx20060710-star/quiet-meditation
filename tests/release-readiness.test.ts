@@ -42,15 +42,16 @@ describe('phase eight release readiness', () => {
 
   it('advances the offline cache when release assets change', () => {
     const worker = readFileSync(resolve(root, 'public/sw.js'), 'utf8');
-    expect(worker).toContain("quiet-meditation-static-v10");
+    expect(worker).toContain("quiet-meditation-static-v11");
     expect(worker).toContain("'./icons/icon-512.png'");
   });
 
-  it('ships static security headers without overriding platform cache policy', () => {
+  it('ships security headers and prevents stale entrypoints', () => {
     const headers = readFileSync(resolve(root, 'public/_headers'), 'utf8');
     expect(headers).toContain('X-Content-Type-Options: nosniff');
     expect(headers).toContain('X-Frame-Options: DENY');
     expect(headers).toContain('Permissions-Policy: camera=(), microphone=(), geolocation=()');
-    expect(headers).not.toContain('Cache-Control');
+    expect(headers).toContain('/index.html\n  Cache-Control: no-cache, no-store, must-revalidate');
+    expect(headers).toContain('/sw.js\n  Cache-Control: no-cache, no-store, must-revalidate');
   });
 });
