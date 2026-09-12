@@ -42,7 +42,8 @@ describe('phase six preferences', () => {
       pause: vi.fn(async () => undefined),
       stop: vi.fn(async () => undefined),
     };
-    const controller = new AppController(repository, new TestClock(), true, undefined, undefined, undefined, ambient);
+    const clock = new TestClock(new Date(2026, 7, 31, 12).getTime());
+    const controller = new AppController(repository, clock, true, undefined, undefined, undefined, ambient);
     await controller.initialize();
     await controller.start();
     expect(ambient.start).toHaveBeenCalledWith(expect.objectContaining({ period: 'day' }));
