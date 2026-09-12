@@ -1,5 +1,6 @@
 import './styles/tokens.css';
 import './styles/app.css';
+import './styles/home.css';
 import { bootstrap } from './app/bootstrap';
 import { mountApp } from './ui/render';
 import { registerOfflineSupport } from './infrastructure/pwa';

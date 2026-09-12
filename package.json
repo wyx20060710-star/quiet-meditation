@@ -1,11 +1,11 @@
 {
   "name": "quiet-meditation",
   "private": true,
-  "version": "2.0.0",
+  "version": "2.1.1",
   "packageManager": "pnpm@11.9.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --configLoader runner",
     "icons": "node scripts/generate-icons.mjs",
     "build": "tsc --noEmit && vite build --configLoader runner",
     "test": "vitest run --configLoader runner",

@@ -48,11 +48,18 @@ function homeTemplate(controller: AppController): string {
   const stats = controller.statistics();
   return `<main class="page home-page" aria-labelledby="page-title" tabindex="-1">
     ${sceneTemplate()}
-    <button class="icon-button settings-trigger" data-action="open-settings" aria-label="打开设置" aria-expanded="${state.settingsOpen}">${settingsIcon()}</button>
-    <section class="home-content"><p class="ambient-label">${escapeHtml(state.ambientProfile.label)}</p><h1 id="page-title" tabindex="-1">片刻</h1><p class="entry-prompt">${escapeHtml(state.ambientProfile.prompt)}</p>
-      <div class="entry-controls"><p class="duration-caption">为自己留 <strong data-duration-value>${state.selectedMinutes}</strong> 分钟</p><div class="home-duration-control"><label class="sr-only" for="home-duration-range">冥想时长，一分钟到六十分钟</label><input id="home-duration-range" class="home-duration-range" data-duration-range type="range" min="1" max="60" step="1" value="${state.selectedMinutes}" aria-valuetext="${state.selectedMinutes} 分钟" /><div class="range-ends" aria-hidden="true"><span>1 分钟</span><span>60 分钟</span></div></div><div class="quick-times" aria-label="快捷时长">${QUICK_MINUTES.map((minutes) => `<button class="quick-time${isQuickMinuteSelected(state.selectedMinutes, minutes) ? ' selected' : ''}" data-action="duration" data-minutes="${minutes}" aria-pressed="${isQuickMinuteSelected(state.selectedMinutes, minutes)}"><span>${minutes}</span><small>分钟</small></button>`).join('')}</div><button class="primary-button start-button" data-action="start" ${state.busy ? 'disabled' : ''}><span>开始冥想</span><small><span data-duration-value>${state.selectedMinutes}</span> 分钟</small></button>${state.persistent ? '' : '<p class="storage-note" role="status">本次可正常计时；关闭页面后记录可能不会保留。</p>'}</div>
-      ${stats.todaySeconds > 0 ? `<p class="home-summary">今天已留给自己 <strong>${formatDuration(stats.todaySeconds)}</strong></p>` : ''}
-    </section>${state.settingsOpen ? settingsTemplate(controller) : ''}
+    <header class="home-header"><div class="wordmark"><span class="brand-mark" aria-hidden="true">◌</span><span>片刻<small>A MOMENT TO YOURSELF</small></span></div><button class="icon-button" data-action="open-settings" aria-label="打开设置" aria-expanded="${state.settingsOpen}">${settingsIcon()}</button></header>
+    <div class="home-layout">
+      <section class="home-content"><p class="ambient-label"><span class="period-dot" aria-hidden="true"></span>${escapeHtml(state.ambientProfile.label)}</p><h1 id="page-title" tabindex="-1">把时间，<br>留给自己。</h1><p class="entry-prompt">${escapeHtml(state.ambientProfile.prompt)}</p><p class="entry-note">不必清空思绪。<br>只是坐一会儿，回到当下。</p><div class="quiet-line" aria-hidden="true"><span></span>慢下来，也是一种前行</div></section>
+      <section class="entry-controls" aria-labelledby="session-title"><p class="eyebrow">一段属于你的时间</p><h2 id="session-title">准备好，就开始。</h2><p class="duration-caption"><strong data-duration-value>${state.selectedMinutes}</strong><span>分钟 / 此刻</span></p>
+        <div class="quick-times" aria-label="快捷时长">${QUICK_MINUTES.map((minutes, index) => `<button class="quick-time${isQuickMinuteSelected(state.selectedMinutes, minutes) ? ' selected' : ''}" data-action="duration" data-minutes="${minutes}" aria-pressed="${isQuickMinuteSelected(state.selectedMinutes, minutes)}"><span>${minutes}<small> 分钟</small></span><small>${['短暂歇息', '回到当下', '深入静心'][index]}</small></button>`).join('')}</div>
+        <div class="home-duration-control"><label class="sr-only" for="home-duration-range">冥想时长，一分钟到六十分钟</label><input id="home-duration-range" class="home-duration-range" data-duration-range type="range" min="1" max="60" step="1" value="${state.selectedMinutes}" aria-valuetext="${state.selectedMinutes} 分钟" /><div class="range-ends" aria-hidden="true"><span>1 分钟</span><span>自由调节时长</span><span>60 分钟</span></div></div>
+        <label class="home-sound"><span><strong>林间环境声</strong><small>风、树叶与远处的鸟鸣</small></span><input type="checkbox" data-action="ambient" ${state.preferences.ambientEnabled ? 'checked' : ''} /></label>
+        <button class="primary-button start-button" data-action="start" ${state.busy ? 'disabled' : ''}><span>${state.busy ? '正在准备…' : '开始冥想'}</span><span aria-hidden="true">↗</span></button><p class="session-footnote">无需准备，保持自然呼吸就好</p>${state.persistent ? '' : '<p class="storage-note" role="status">本次可正常计时；关闭页面后记录可能不会保留。</p>'}
+      </section>
+    </div>
+    <footer class="home-footer"><div><span class="eyebrow">安静的累积</span><p>${stats.todaySeconds > 0 ? `今天已留给自己 <strong>${formatDuration(stats.todaySeconds)}</strong>` : '从这一刻开始，就很好。'}</p></div><button class="records-toggle" data-action="records" aria-expanded="${state.recordsExpanded}" aria-controls="records-panel">${state.recordsExpanded ? '收起最近记录 −' : '最近记录 ↗'}</button></footer>
+    ${state.recordsExpanded ? recordsTemplate(controller) : ''}${state.settingsOpen ? settingsTemplate(controller) : ''}
   </main>`;
 }
 
@@ -76,12 +83,18 @@ function chartTemplate(controller: AppController): string {
   return `<div class="chart" role="img" aria-label="最近 15 天冥想时长：${stats.last15.map((day) => `${day.dateKey} ${formatDuration(day.totalSeconds)}`).join('；')}">${stats.last15.map((day) => `<div class="bar-column" title="${escapeHtml(day.dateKey)} · ${formatDuration(day.totalSeconds)}"><span class="bar" style="height:${Math.max(day.ratio * 100, day.totalSeconds ? 5 : 1)}%"></span><small>${day.dateKey.slice(5).replace('-', '/')}</small></div>`).join('')}</div>`;
 }
 
+function recordsTemplate(controller: AppController): string {
+  const stats = controller.statistics();
+  const count = stats.last15.reduce((sum, day) => sum + day.completionCount, 0);
+  return `<section class="records-panel" id="records-panel" aria-labelledby="records-title"><div class="records-heading"><div><p class="eyebrow">最近 15 天</p><h2 id="records-title">安静的累积</h2></div><p>7 天共 ${formatDuration(stats.last7Seconds)}<br>${count} 次练习</p></div>${count ? chartTemplate(controller) : '<p class="records-empty">还没有冥想记录。每一段安静的时间，都会在这里留下痕迹。</p>'}<p class="records-privacy">记录只保存在当前设备 · 无需连续打卡</p></section>`;
+}
+
 function completionTemplate(controller: AppController): string {
   const state = controller.snapshot();
   if (state.timer.tag !== 'completed') return '';
   const receipt = state.timer.receipt;
   const stats = controller.statistics();
-  return `<main class="page completion-page" aria-labelledby="completion-title" tabindex="-1">${sceneTemplate()}<section class="completion-card"><p class="eyebrow">${receipt.reason === 'natural' ? '这一段时间结束了' : '本次已记录'}</p><h1 id="completion-title" tabindex="-1">这一刻，已经足够。</h1><p class="result-duration">本次 ${formatDuration(receipt.actualDurationSeconds)}</p><p class="today-total">今天已留给自己 <strong>${formatDuration(stats.todaySeconds)}</strong></p><div class="completion-actions"><button class="primary-button" data-action="repeat">再次冥想</button><button class="secondary-button" data-action="home">返回首页</button></div><button class="records-toggle" data-action="records" aria-expanded="${state.recordsExpanded}" aria-controls="records-panel">${state.recordsExpanded ? '收起最近记录' : '查看最近记录'}</button></section>${state.recordsExpanded ? `<section class="records-panel" id="records-panel" aria-labelledby="records-title"><div class="records-heading"><div><p class="eyebrow">最近 15 天</p><h2 id="records-title">安静的累积</h2></div><p>7 天共 ${formatDuration(stats.last7Seconds)}<br>${stats.last15.reduce((sum, day) => sum + day.completionCount, 0)} 次完成</p></div>${chartTemplate(controller)}</section>` : ''}</main>`;
+  return `<main class="page completion-page" aria-labelledby="completion-title" tabindex="-1">${sceneTemplate()}<section class="completion-card"><p class="eyebrow">${receipt.reason === 'natural' ? '这一段时间结束了' : '本次已记录'}</p><h1 id="completion-title" tabindex="-1">这一刻，已经足够。</h1><p class="result-duration">本次 ${formatDuration(receipt.actualDurationSeconds)}</p><p class="today-total">今天已留给自己 <strong>${formatDuration(stats.todaySeconds)}</strong></p><div class="completion-actions"><button class="primary-button" data-action="repeat">再次冥想</button><button class="secondary-button" data-action="home">返回首页</button></div><button class="records-toggle" data-action="records" aria-expanded="${state.recordsExpanded}" aria-controls="records-panel">${state.recordsExpanded ? '收起最近记录' : '查看最近记录'}</button></section>${state.recordsExpanded ? recordsTemplate(controller) : ''}</main>`;
 }
 
 export function mountApp(root: HTMLElement, controller: AppController): void {
@@ -95,9 +108,14 @@ export function mountApp(root: HTMLElement, controller: AppController): void {
     const controls = root.querySelector<HTMLElement>('.timer-controls');
     if (!controls) return;
     const state = controller.snapshot();
-    const visible = state.timer.tag !== 'confirming' && (state.controlsVisible || state.timer.tag === 'paused');
+    const visible = state.timer.tag !== 'confirming' && (state.controlsVisible || state.timer.tag === 'paused' || controls.contains(document.activeElement));
     controls.classList.toggle('is-visible', visible);
     controls.setAttribute('aria-hidden', String(!visible));
+    controls.inert = !visible;
+    const ambient = controls.querySelector<HTMLInputElement>('[data-action="ambient"]');
+    if (ambient) ambient.checked = state.preferences.ambientEnabled;
+    const label = controls.querySelector('.timer-ambient-toggle span');
+    if (label) label.textContent = state.preferences.ambientEnabled ? '林间声' : '环境声已关闭';
   };
 
   const render = () => {
@@ -115,6 +133,25 @@ export function mountApp(root: HTMLElement, controller: AppController): void {
     const routeName = routeForTag(tag);
     if (tag === 'running' && lastTag === 'running' && root.querySelector('.timer-page')) { updateTimer(); updateControlsVisibility(); return; }
     root.innerHTML = tag === 'idle' ? homeTemplate(controller) : tag === 'completed' ? completionTemplate(controller) : timerTemplate(controller);
+    const notice = document.createElement('p');
+    notice.className = 'app-notice';
+    notice.setAttribute('role', 'status');
+    notice.textContent = snapshot.notice;
+    root.append(notice);
+    if (tag === 'running') {
+      const hint = document.createElement('button');
+      hint.className = 'timer-hint';
+      hint.dataset.action = 'reveal-controls';
+      hint.textContent = '轻触此处显示操作';
+      root.querySelector('.timer-page')?.append(hint);
+    }
+    const dialogBackdrop = root.querySelector('.settings-backdrop, .modal-backdrop');
+    if (dialogBackdrop) {
+      for (const child of root.querySelector('main.page')?.children ?? []) {
+        if (child instanceof HTMLElement && child !== dialogBackdrop) child.inert = true;
+      }
+    }
+    updateControlsVisibility();
     if (lastRoute === routeName) root.querySelector('.page')?.classList.add('no-page-enter');
     document.body.dataset.view = tag;
     const route = tag === 'idle' ? '#/' : tag === 'completed' ? '#/complete' : '#/timer';
@@ -144,6 +181,10 @@ export function mountApp(root: HTMLElement, controller: AppController): void {
 
   controller.subscribe(render);
   controller.subscribeTick(updateTimer);
+  root.addEventListener('focusin', (event) => {
+    if ((event.target as HTMLElement).closest('.timer-controls')) controller.revealControls();
+  });
+  root.addEventListener('focusout', () => { window.setTimeout(updateControlsVisibility, 0); });
   root.addEventListener('click', (event) => {
     const target = (event.target as HTMLElement).closest<HTMLElement>('[data-action]');
     if (!target) return;
@@ -205,7 +246,8 @@ export function mountApp(root: HTMLElement, controller: AppController): void {
         else if (first && !modal?.contains(document.activeElement)) { event.preventDefault(); first.focus(); }
       }
     }
-    if ((event.key === 'Enter' || event.key === ' ') && state.timer.tag === 'running' && !state.controlsVisible) { event.preventDefault(); controller.revealControls(); }
+    const inControls = event.target instanceof HTMLElement && Boolean(event.target.closest('.timer-controls'));
+    if ((event.key === 'Enter' || event.key === ' ') && state.timer.tag === 'running' && !state.controlsVisible && !inControls) { event.preventDefault(); controller.revealControls(); }
   });
   document.addEventListener('visibilitychange', () => { void controller.handleVisibilityChange(document.hidden); });
   window.addEventListener('pagehide', () => { void controller.checkpointRunning(); });

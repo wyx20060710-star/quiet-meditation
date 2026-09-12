@@ -41,6 +41,7 @@ export interface AppSnapshot {
   preferences: UserPreferences;
   ambientProfile: AmbientProfile;
   settingsOpen: boolean;
+  notice: string;
 }
 
 type Listener = () => void;
@@ -57,6 +58,7 @@ export class AppController {
     preferences: defaultPreferences(),
     ambientProfile: ambientProfileAt(new Date(0)),
     settingsOpen: false,
+    notice: '',
   };
   private listeners = new Set<Listener>();
   private tickListeners = new Set<Listener>();
@@ -184,11 +186,18 @@ export class AppController {
   }
 
   async setDuration(minutes: number, notify = true): Promise<void> {
+    if (!Number.isFinite(minutes) || this.state.timer.tag !== 'idle') return;
+    const previousNotice = this.state.notice;
     const value = Math.min(60, Math.max(1, Math.round(minutes)));
     this.state.selectedMinutes = value;
-    await this.repository.setSelectedMinutes(value);
-    this.channel.publish('runtime');
-    if (notify) this.emit();
+    try {
+      await this.repository.setSelectedMinutes(value);
+      this.channel.publish('runtime');
+      this.state.notice = '';
+    } catch {
+      this.state.notice = '时长已在本页更新，但暂时无法保存。重新打开后可能需要再次选择。';
+    }
+    if (notify || previousNotice !== this.state.notice) this.emit();
   }
 
   async setSoundEnabled(soundEnabled: boolean): Promise<void> {
@@ -213,6 +222,7 @@ export class AppController {
   async start(): Promise<void> {
     if (this.state.busy || (this.state.timer.tag !== 'idle' && this.state.timer.tag !== 'completed')) return;
     this.state.busy = true;
+    this.state.notice = '';
     this.state.settingsOpen = false;
     this.refreshAmbientProfile(false);
     this.clearAmbientProfileRefresh();
@@ -243,6 +253,11 @@ export class AppController {
       this.channel.publish('runtime');
     } catch {
       await this.synchronize();
+      if (this.state.timer.tag === 'idle' || this.state.timer.tag === 'completed') {
+        this.state.notice = '暂时无法开始，请再试一次。已有记录不会被删除。';
+        await this.ambient.stop().catch(() => undefined);
+        this.scheduleAmbientProfileRefresh();
+      }
     } finally {
       this.state.busy = false;
       this.emit();
