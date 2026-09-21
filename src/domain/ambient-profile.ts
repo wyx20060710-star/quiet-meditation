@@ -7,9 +7,8 @@ export interface AmbientProfile {
   themeColor: string;
   sound: {
     masterVolume: number;
-    windGain: number;
-    waterGain: number;
-    birdsPerMinute: number;
+    noiseGain: number;
+    lowpassHz: number;
   };
 }
 
@@ -21,28 +20,28 @@ export const AMBIENT_DEFINITIONS: Record<AmbientPeriod, AmbientDefinition> = {
     label: '晨光林隙',
     prompts: ['慢一点，今天才刚开始。', '先回到这一口呼吸。'],
     themeColor: '#56634c',
-    sound: { masterVolume: 0.075, windGain: 0.34, waterGain: 0.12, birdsPerMinute: 4 },
+    sound: { masterVolume: 0.12, noiseGain: 0.65, lowpassHz: 900 },
   },
   day: {
     period: 'day',
     label: '清透林间',
     prompts: ['把喧闹留在林外。', '此刻，只做一件事。'],
     themeColor: '#526656',
-    sound: { masterVolume: 0.07, windGain: 0.4, waterGain: 0.16, birdsPerMinute: 2.5 },
+    sound: { masterVolume: 0.12, noiseGain: 0.65, lowpassHz: 900 },
   },
   dusk: {
     period: 'dusk',
     label: '暮色林间',
     prompts: ['让今天慢慢落下。', '不必带着所有事情继续走。'],
     themeColor: '#6d5d48',
-    sound: { masterVolume: 0.065, windGain: 0.28, waterGain: 0.2, birdsPerMinute: 1.2 },
+    sound: { masterVolume: 0.12, noiseGain: 0.65, lowpassHz: 900 },
   },
   night: {
     period: 'night',
     label: '夜色林间',
     prompts: ['把未完成的，暂时放下。', '这一刻，不需要抵达哪里。'],
     themeColor: '#172d2d',
-    sound: { masterVolume: 0.055, windGain: 0.22, waterGain: 0.24, birdsPerMinute: 0 },
+    sound: { masterVolume: 0.12, noiseGain: 0.65, lowpassHz: 900 },
   },
 };
 

@@ -18,11 +18,10 @@ export const AMBIENT_SOUND_PROFILES = {
   night: AMBIENT_DEFINITIONS.night.sound,
 } as const satisfies Record<AmbientPeriod, AmbientProfile['sound']>;
 
-export class ForestAmbientSound implements AmbientSoundPort {
+export class StudyAmbientSound implements AmbientSoundPort {
   private context: AudioContext | null = null;
   private master: GainNode | null = null;
   private sources: AudioScheduledSourceNode[] = [];
-  private birdTimer: number | undefined;
   private profile: AmbientProfile | null = null;
   private playing = false;
 
@@ -42,7 +41,6 @@ export class ForestAmbientSound implements AmbientSoundPort {
     this.master.gain.setValueAtTime(Math.max(this.master.gain.value, 0.0001), now);
     this.master.gain.exponentialRampToValueAtTime(profile.sound.masterVolume, now + 1.8);
     this.playing = true;
-    this.scheduleBird();
   }
 
   async pause(): Promise<void> {
@@ -53,7 +51,6 @@ export class ForestAmbientSound implements AmbientSoundPort {
     this.master.gain.setValueAtTime(Math.max(this.master.gain.value, 0.0001), now);
     this.master.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
     this.playing = false;
-    this.clearBirdTimer();
     await new Promise<void>((resolve) => window.setTimeout(resolve, 480));
     if (this.context === context && context.state === 'running') {
       await context.suspend().catch(() => undefined);
@@ -62,7 +59,6 @@ export class ForestAmbientSound implements AmbientSoundPort {
 
   async stop(): Promise<void> {
     const context = this.context;
-    this.clearBirdTimer();
     for (const source of this.sources) {
       try { source.stop(); } catch { /* A source may already have ended. */ }
     }
@@ -84,77 +80,42 @@ export class ForestAmbientSound implements AmbientSoundPort {
     master.connect(context.destination);
     this.context = context;
     this.master = master;
-    this.createNoiseLayer(profile.sound.windGain, 720, 'lowpass', 0.055);
-    this.createNoiseLayer(profile.sound.waterGain, 1_350, 'bandpass', 0.022);
+    this.createNoiseLayer(profile.sound.noiseGain, profile.sound.lowpassHz);
   }
 
-  private createNoiseLayer(baseGain: number, frequency: number, type: BiquadFilterType, movement: number): void {
+  private createNoiseLayer(baseGain: number, frequency: number): void {
     if (!this.context || !this.master) return;
     const context = this.context;
-    const length = Math.floor(context.sampleRate * 4);
+    const length = Math.floor(context.sampleRate * 12);
+    const overlap = Math.floor(context.sampleRate * 0.1);
     const buffer = context.createBuffer(1, length, context.sampleRate);
     const data = buffer.getChannelData(0);
+    const noise = new Float32Array(length + overlap);
     let smoothed = 0;
-    for (let index = 0; index < length; index += 1) {
+    for (let index = 0; index < noise.length; index += 1) {
       smoothed = smoothed * 0.985 + (Math.random() * 2 - 1) * 0.015;
-      data[index] = smoothed * 3.2;
+      noise[index] = smoothed * 3.2;
+    }
+    data.set(noise.subarray(0, length));
+    // Blend the continued tail into the beginning to avoid a click at each loop.
+    for (let index = 0; index < overlap; index += 1) {
+      const blend = (1 - Math.cos(Math.PI * index / overlap)) / 2;
+      data[index] = noise[length + index]! * (1 - blend) + noise[index]! * blend;
     }
     const source = context.createBufferSource();
     const filter = context.createBiquadFilter();
     const gain = context.createGain();
-    const lfo = context.createOscillator();
-    const depth = context.createGain();
     source.buffer = buffer;
     source.loop = true;
-    filter.type = type;
+    filter.type = 'lowpass';
     filter.frequency.setValueAtTime(frequency, context.currentTime);
-    filter.Q.setValueAtTime(type === 'bandpass' ? 0.7 : 0.2, context.currentTime);
+    filter.Q.setValueAtTime(0.2, context.currentTime);
     gain.gain.setValueAtTime(baseGain, context.currentTime);
-    lfo.frequency.setValueAtTime(type === 'bandpass' ? 0.035 : 0.018, context.currentTime);
-    depth.gain.setValueAtTime(movement, context.currentTime);
-    lfo.connect(depth);
-    depth.connect(gain.gain);
     source.connect(filter);
     filter.connect(gain);
     gain.connect(this.master);
     source.start();
-    lfo.start();
-    this.sources.push(source, lfo);
-  }
-
-  private scheduleBird(): void {
-    this.clearBirdTimer();
-    if (!this.profile || !this.playing || this.profile.sound.birdsPerMinute <= 0) return;
-    const averageDelay = 60_000 / this.profile.sound.birdsPerMinute;
-    const delay = averageDelay * (0.72 + Math.random() * 0.56);
-    this.birdTimer = window.setTimeout(() => {
-      this.playBirdCall();
-      this.scheduleBird();
-    }, delay);
-  }
-
-  private playBirdCall(): void {
-    if (!this.context || !this.master || !this.playing) return;
-    const context = this.context;
-    const onset = context.currentTime + 0.02;
-    const oscillator = context.createOscillator();
-    const gain = context.createGain();
-    oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(1_580 + Math.random() * 260, onset);
-    oscillator.frequency.exponentialRampToValueAtTime(2_150 + Math.random() * 320, onset + 0.12);
-    oscillator.frequency.exponentialRampToValueAtTime(1_720 + Math.random() * 220, onset + 0.34);
-    gain.gain.setValueAtTime(0.0001, onset);
-    gain.gain.exponentialRampToValueAtTime(0.024, onset + 0.035);
-    gain.gain.exponentialRampToValueAtTime(0.0001, onset + 0.38);
-    oscillator.connect(gain);
-    gain.connect(this.master);
-    oscillator.start(onset);
-    oscillator.stop(onset + 0.4);
-  }
-
-  private clearBirdTimer(): void {
-    if (this.birdTimer !== undefined) window.clearTimeout(this.birdTimer);
-    this.birdTimer = undefined;
+    this.sources.push(source);
   }
 }
 

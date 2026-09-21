@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quiet-meditation-static-v11';
+const CACHE_NAME = 'quiet-meditation-static-v12';
 const CORE = [
   './manifest.webmanifest',
   './icons/icon.svg',
