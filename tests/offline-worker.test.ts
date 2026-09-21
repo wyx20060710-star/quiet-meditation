@@ -17,12 +17,13 @@ function worker(failure?: 'missing' | 'html-for-js') {
     const url = typeof input === 'string' ? input : input.url;
     if (failure === 'missing' && url.endsWith('.css')) return new Response('', { status: 404 });
     if (failure === 'html-for-js' && url.endsWith('.js')) return new Response(html, { headers: { 'content-type': 'text/html' } });
-    if (url.endsWith('index.html')) return new Response(html, { headers: { 'content-type': 'text/html' } });
+    if (url === scope || url.endsWith('index.html')) return new Response(html, { headers: { 'content-type': 'text/html' } });
     return new Response('asset', { headers: { 'content-type': url.endsWith('.js') ? 'text/javascript' : url.endsWith('.css') ? 'text/css' : 'application/octet-stream' } });
   });
+  const openCache = vi.fn(async () => cache);
   const skipWaiting = vi.fn(async () => undefined);
   runInNewContext(source, {
-    URL, Response, fetch: fetcher, caches: { open: async () => cache },
+    URL, Response, fetch: fetcher, caches: { open: openCache },
     self: { registration: { scope }, location: { origin: 'https://example.com' }, skipWaiting,
       clients: { claim: async () => undefined }, addEventListener: (name: string, handler: (event: any) => void) => handlers.set(name, handler) },
   });
@@ -36,7 +37,7 @@ function worker(failure?: 'missing' | 'html-for-js') {
     handlers.get('fetch')!({ request: { url, method: 'GET', mode }, respondWith: (promise: Promise<Response>) => { pending = promise; } });
     return pending!;
   };
-  return { entries, fetcher, skipWaiting, install, request };
+  return { entries, fetcher, skipWaiting, install, request, openCache, cache };
 }
 
 describe('complete offline releases', () => {
@@ -60,5 +61,41 @@ describe('complete offline releases', () => {
     await app.install();
     app.fetcher.mockResolvedValue(new Response('<script src="missing-new.js"></script>'));
     expect(await (await app.request(scope, 'navigate')).text()).toBe(html);
+  });
+});
+
+describe('navigation recovery', () => {
+  it('fetches the canonical directory and strips redirect metadata before caching', async () => {
+    const app = worker();
+    const response = new Response(html, { headers: { 'content-type': 'text/html' } });
+    Object.defineProperty(response, 'redirected', { value: true });
+    app.fetcher.mockResolvedValueOnce(response);
+    await app.install();
+    expect(app.fetcher).toHaveBeenNthCalledWith(1, scope, { cache: 'reload' });
+    expect(app.entries.get(scope + 'index.html')?.redirected).toBe(false);
+    const navigation = await app.request(scope, 'navigate');
+    expect(navigation.redirected).toBe(false);
+    expect(navigation.headers.get('content-type')).toBe('text/html');
+    expect(await navigation.text()).toBe(html);
+  });
+
+  it('sanitizes a redirected cached response when serving navigation', async () => {
+    const app = worker();
+    const response = new Response(html);
+    Object.defineProperty(response, 'redirected', { value: true });
+    app.cache.match.mockResolvedValueOnce(response);
+    const navigation = await app.request(scope, 'navigate');
+    expect(navigation.redirected).toBe(false);
+    expect(await navigation.text()).toBe(html);
+  });
+
+  it.each(['open', 'match', 'missing'] as const)('falls back to the network when cache is %s', async (failure) => {
+    const app = worker();
+    if (failure === 'open') app.openCache.mockRejectedValue(new Error('storage denied'));
+    if (failure === 'match') app.cache.match.mockRejectedValue(new Error('cache read failed'));
+    const navigation = await app.request(scope, 'navigate');
+    expect(await navigation.text()).toBe(html);
+    const asset = await app.request(scope + 'assets/app.js');
+    expect(await asset.text()).toBe('asset');
   });
 });

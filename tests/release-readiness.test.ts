@@ -42,7 +42,7 @@ describe('phase eight release readiness', () => {
 
   it('advances the offline cache when release assets change', () => {
     const worker = readFileSync(resolve(root, 'public/sw.js'), 'utf8');
-    expect(worker).toContain("quiet-meditation-static-v12");
+    expect(worker).toContain("quiet-meditation-static-v13");
     expect(worker).toContain("'./icons/icon-512.png'");
   });
 

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quiet-meditation-static-v12';
+const CACHE_NAME = 'quiet-meditation-static-v13';
 const CORE = [
   './manifest.webmanifest',
   './icons/icon.svg',
@@ -9,10 +9,31 @@ const CORE = [
 const scope = self.registration.scope;
 const indexUrl = new URL('index.html', scope).href;
 
+// A followed redirect cannot be returned to a navigation with redirect mode manual.
+// Reconstruct the response to remove its redirect URL list while preserving the body.
+function navigationResponse(response) {
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers,
+  });
+}
+
+async function cachedResponse(key) {
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    return await cache.match(key);
+  } catch {
+    // Storage denial or eviction must not prevent an online page from opening.
+    return undefined;
+  }
+}
+
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE_NAME);
-    const response = await fetch(indexUrl, { cache: 'reload' });
+    // Pages redirects index.html to the directory URL. Cache a navigation-safe response.
+    const response = await fetch(scope, { cache: 'reload' });
     if (!response.ok) throw new Error('Application HTML unavailable');
     const html = await response.clone().text();
     const assets = [...html.matchAll(/(?:src|href)="([^"]+)"/g)]
@@ -30,7 +51,7 @@ self.addEventListener('install', (event) => {
       }
       await cache.put(url, asset);
     }));
-    await cache.put(indexUrl, response);
+    await cache.put(indexUrl, navigationResponse(response));
     await self.skipWaiting();
   })());
 });
@@ -51,15 +72,14 @@ self.addEventListener('fetch', (event) => {
   if (request.mode === 'navigate') {
     event.respondWith((async () => {
       // Serve HTML from the same complete release as its JS/CSS, online or off.
-      const cache = await caches.open(CACHE_NAME);
-      return (await cache.match(indexUrl)) || fetch(request);
+      const cached = await cachedResponse(indexUrl);
+      return cached ? navigationResponse(cached) : fetch(request);
     })());
     return;
   }
 
   event.respondWith((async () => {
-    const cache = await caches.open(CACHE_NAME);
-    const cached = await cache.match(request);
+    const cached = await cachedResponse(request);
     if (cached) return cached;
     return fetch(request);
   })());
